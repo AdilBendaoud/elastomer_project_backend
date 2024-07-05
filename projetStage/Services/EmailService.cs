@@ -1,37 +1,66 @@
 ﻿using System.Net.Mail;
 using System.Net;
+using projetStage.DTO;
 
 namespace projetStage.Services
 {
     public class EmailService : IEmailService
     {
         private readonly IConfiguration _configuration;
+        private SmtpClient _smtpClient;
+        private string _from;
 
         public EmailService(IConfiguration configuration)
         {
             _configuration = configuration;
+            UpdateSmtpClient();
         }
 
         public void SendEmail(string to, string subject, string body)
         {
-            var smtpClient = new SmtpClient(_configuration["EmailSettings:SmtpServer"])
-            {
-                Port = int.Parse(_configuration["EmailSettings:Port"]),
-                Credentials = new NetworkCredential(_configuration["EmailSettings:Username"], _configuration["EmailSettings:Password"]),
-                EnableSsl = bool.Parse(_configuration["EmailSettings:EnableSsl"])
-            };
-
             var mailMessage = new MailMessage
             {
-                From = new MailAddress(_configuration["EmailSettings:From"]),
+                From = new MailAddress(_from),
                 Subject = subject,
                 Body = body,
                 IsBodyHtml = true
             };
 
             mailMessage.To.Add(to);
-
-            smtpClient.SendMailAsync(mailMessage);
+            _smtpClient.Send(mailMessage);
         }
+
+        public void UpdateSettings(EmailServiceSettingsModel settings)
+        {
+            var emailSettingsSection = _configuration.GetSection("EmailSettings");
+            emailSettingsSection["SmtpServer"] = settings.SmtpServer;
+            emailSettingsSection["Port"] = settings.Port.ToString();
+            emailSettingsSection["Username"] = settings.Username;
+            emailSettingsSection["Password"] = settings.Password;
+            emailSettingsSection["EnableSsl"] = settings.EnableSsl.ToString();
+            emailSettingsSection["From"] = settings.From;
+            emailSettingsSection["UseAuthentication"] = settings.UseAuthentication.ToString();
+
+            UpdateSmtpClient();
+        }
+
+        private void UpdateSmtpClient()
+        {
+            var emailSettings = _configuration.GetSection("EmailSettings");
+
+            _smtpClient = new SmtpClient(emailSettings["SmtpServer"])
+            {
+                Port = int.Parse(emailSettings["Port"]),
+                EnableSsl = bool.Parse(emailSettings["EnableSsl"])
+            };
+
+            if (bool.Parse(emailSettings["UseAuthentication"]))
+            {
+                _smtpClient.Credentials = new NetworkCredential(emailSettings["Username"], emailSettings["Password"]);
+            }
+
+            _from = emailSettings["From"];
+        }
+
     }
 }

@@ -1,7 +1,10 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using projetStage.Data;
 using projetStage.DTO;
+using projetStage.Helper;
 using projetStage.Models;
 using projetStage.Services;
 
@@ -14,11 +17,13 @@ namespace projetStage.Controllers
         private readonly ITokenService _tokenService;
         private readonly IPasswordService _passwordService;
         private readonly AppDbContext _context;
+        private readonly IEmailService _emailService;
 
-        public AuthController(ITokenService tokenService, IPasswordService passwordService, AppDbContext context)
+        public AuthController(ITokenService tokenService, IPasswordService passwordService, IEmailService emailService, AppDbContext context)
         {
             _tokenService = tokenService;
             _passwordService = passwordService;
+            _emailService = emailService;
             _context = context;
         }
 
@@ -34,63 +39,92 @@ namespace projetStage.Controllers
             return false;
         }
 
-        [HttpPost("register/admin")]
-        public IActionResult RegisterAdmin([FromBody] Admin admin)
+        private void CreateUser<T>(RegisterUserModel model, string role, DbSet<T> dbSet) where T : class
         {
-            if (CodeExists(admin.Code))
+            if (CodeExists(model.Code))
             {
-                return BadRequest("User with this code already exists.");
+                throw new Exception("User with this code already exists.");
             }
-            admin.Password = _passwordService.HashPassword(admin.Password);
-            _context.Admins.Add(admin);
+
+            if (_context.Set<T>().Any(u => EF.Property<string>(u, "Email") == model.Email))
+            {
+                throw new Exception("User with this email already exists.");
+            }
+            var password = PasswordGenerator.GeneratePassword();
+            var user = (T)Activator.CreateInstance(typeof(T));
+            user.GetType().GetProperty("FirstName").SetValue(user, model.FirstName);
+            user.GetType().GetProperty("LastName").SetValue(user, model.LastName);
+            user.GetType().GetProperty("Email").SetValue(user, model.Email);
+            user.GetType().GetProperty("Password").SetValue(user, _passwordService.HashPassword(password));
+            user.GetType().GetProperty("Role").SetValue(user, role);
+            user.GetType().GetProperty("Code").SetValue(user, model.Code);
+            user.GetType().GetProperty("Departement").SetValue(user, model.Departement);
+            user.GetType().GetProperty("NeedsPasswordChange").SetValue(user, true);
+
+            dbSet.Add(user);
             _context.SaveChanges();
 
-            return Ok("Admin registered successfully.");
+            _emailService.SendEmail(model.Email, "Account Created", $"Your temporary password is: {password}. Please log in and change your password.");
+        }
+
+        [HttpPost("register/admin")]
+        [Authorize(Roles = "A")]
+        public IActionResult RegisterAdmin([FromBody] RegisterUserModel admin)
+        {
+            try
+            {
+                CreateUser(admin, "A", _context.Admins);
+                return Ok("Admin registered successfully.");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpPost("register/acheteur")]
-        public IActionResult RegisterAcheteur([FromBody] Acheteur acheteur)
+        [Authorize(Roles = "A")]
+        public IActionResult RegisterAcheteur([FromBody] RegisterUserModel acheteur)
         {
-            if (CodeExists(acheteur.Code))
+            try
             {
-                return BadRequest("User with this code already exists.");
+                CreateUser(acheteur, "P", _context.Acheteurs);
+                return Ok("Purchaseur registered successfully.");
             }
-
-            acheteur.Password = _passwordService.HashPassword(acheteur.Password);
-            _context.Acheteurs.Add(acheteur);
-            _context.SaveChanges();
-
-            return Ok("Acheteur registered successfully.");
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpPost("register/demandeur")]
-        public IActionResult RegisterDemandeur([FromBody] Demandeur demandeur)
+        [Authorize(Roles = "A")]
+        public IActionResult RegisterDemandeur([FromBody] RegisterUserModel demandeur)
         {
-            if (CodeExists(demandeur.Code))
+            try
             {
-                return BadRequest("User with this code already exists.");
+                CreateUser(demandeur, "D", _context.Demandeurs);
+                return Ok("Requesteur registered successfully.");
             }
-
-            demandeur.Password = _passwordService.HashPassword(demandeur.Password);
-            _context.Demandeurs.Add(demandeur);
-            _context.SaveChanges();
-
-            return Ok("Demandeur registered successfully.");
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpPost("register/validateur")]
-        public IActionResult RegisterValidateur([FromBody] Validateur validateur)
+        [Authorize(Roles = "A")]
+        public IActionResult RegisterValidateur([FromBody] RegisterUserModel validateur)
         {
-            if (CodeExists(validateur.Code))
+            try
             {
-                return BadRequest("User with this code already exists.");
+                CreateUser(validateur, "V", _context.Validateurs);
+                return Ok("Validator registered successfully.");
             }
-
-            validateur.Password = _passwordService.HashPassword(validateur.Password);
-            _context.Validateurs.Add(validateur);
-            _context.SaveChanges();
-
-            return Ok("Validateur registered successfully.");
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpPost("login")]
