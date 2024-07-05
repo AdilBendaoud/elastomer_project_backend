@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using projetStage.Data;
+using projetStage.DTO;
 using projetStage.Models;
 using projetStage.Services;
 

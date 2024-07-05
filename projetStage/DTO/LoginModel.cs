@@ -1,4 +1,4 @@
-﻿namespace projetStage.Models
+﻿namespace projetStage.DTO
 {
     public class LoginModel
     {
