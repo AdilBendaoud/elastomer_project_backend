@@ -145,7 +145,9 @@ namespace projetStage.Controllers
                         admin.Email,
                         admin.Code,
                         admin.Departement,
-                        admin.Role
+                        admin.Role,
+                        admin.NeedsPasswordChange,
+                        admin.IsActive
                     }
                 });
             }
@@ -165,7 +167,9 @@ namespace projetStage.Controllers
                         acheteur.Email,
                         acheteur.Code,
                         acheteur.Departement,
-                        acheteur.Role
+                        acheteur.Role,
+                        acheteur.NeedsPasswordChange,
+                        acheteur.IsActive
                     }
                 });
             }
@@ -185,7 +189,9 @@ namespace projetStage.Controllers
                         demandeur.Email,
                         demandeur.Code,
                         demandeur.Departement,
-                        demandeur.Role
+                        demandeur.Role,
+                        demandeur.NeedsPasswordChange,
+                        demandeur.IsActive
                     }
                 });
             }
@@ -205,7 +211,9 @@ namespace projetStage.Controllers
                         validateur.Email,
                         validateur.Code,
                         validateur.Departement,
-                        validateur.Role
+                        validateur.Role,
+                        validateur.NeedsPasswordChange,
+                        validateur.IsActive
                     }
                 });
             }

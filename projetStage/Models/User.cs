@@ -14,5 +14,6 @@ namespace projetStage.Models
         public string Role { get; set; }
         public string Departement { get; set; }
         public bool NeedsPasswordChange { get; set; }
+        public bool IsActive { get; set; }
     }
 }

@@ -2,5 +2,6 @@
 {
     public class Demandeur : User
     {
+        public ICollection<Demande> Demandes { get; set; }
     }
 }

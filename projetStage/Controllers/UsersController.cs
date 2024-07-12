@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using projetStage.Data;
 using projetStage.DTO;
+using projetStage.DTO.password;
 using projetStage.Helper;
 using projetStage.Migrations;
 using projetStage.Models;
@@ -24,11 +25,20 @@ namespace projetStage.Controllers
             _passwordService = passwordService;
         }
 
-        [HttpGet("users")]
-        [Authorize(Roles = "A")]
-        public IActionResult GetAllUsers(int pageNumber = 1, int pageSize = 10)
+        private User GetUser(int id) 
         {
-            var users = _context.Admins
+            var user = _context.Admins.SingleOrDefault(u => u.Code == id) ??
+                       (User)_context.Acheteurs.SingleOrDefault(u => u.Code == id) ??
+                       (User)_context.Demandeurs.SingleOrDefault(u => u.Code == id) ??
+                       (User)_context.Validateurs.SingleOrDefault(u => u.Code == id);
+            return user;
+        }
+
+        [HttpGet()]
+        [Authorize(Roles = "A")]
+        public IActionResult GetUsers([FromQuery] string search = null, [FromQuery] string role = null, [FromQuery] string department = null, int pageNumber = 1, int pageSize = 10)
+        {
+            IQueryable<UserDetailsModel> usersQuery = _context.Admins
                 .Select(u => new UserDetailsModel
                 {
                     Id = u.Id,
@@ -37,7 +47,8 @@ namespace projetStage.Controllers
                     Email = u.Email,
                     Role = u.Role,
                     Code = u.Code,
-                    Departement = u.Departement
+                    Departement = u.Departement,
+                    IsActive = u.IsActive,
                 })
                 .Union(_context.Acheteurs
                     .Select(u => new UserDetailsModel
@@ -48,7 +59,8 @@ namespace projetStage.Controllers
                         Email = u.Email,
                         Role = u.Role,
                         Code = u.Code,
-                        Departement = u.Departement
+                        Departement = u.Departement,
+                        IsActive = u.IsActive,
                     }))
                 .Union(_context.Demandeurs
                     .Select(u => new UserDetailsModel
@@ -59,7 +71,8 @@ namespace projetStage.Controllers
                         Email = u.Email,
                         Role = u.Role,
                         Code = u.Code,
-                        Departement = u.Departement
+                        Departement = u.Departement,
+                        IsActive = u.IsActive,
                     }))
                 .Union(_context.Validateurs
                     .Select(u => new UserDetailsModel
@@ -70,88 +83,36 @@ namespace projetStage.Controllers
                         Email = u.Email,
                         Role = u.Role,
                         Code = u.Code,
-                        Departement = u.Departement
-                    }))
-                .ToList();
-
-            var totalUsers = users.Count;
-            var paginatedUsers = users
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
-                .ToList();
-
-            var response = new PaginatedResponse<UserDetailsModel>
-            {
-                TotalCount = totalUsers,
-                PageSize = pageSize,
-                CurrentPage = pageNumber,
-                Items = paginatedUsers
-            };
-
-            return Ok(response);
-        }
-
-        [HttpGet("users/filter")]
-        [Authorize(Roles = "A")]
-        public IActionResult GetFilteredUsers([FromQuery] string role = null, [FromQuery] string departement = null, int pageNumber = 1, int pageSize = 10)
-        {
-            var users = _context.Admins.AsQueryable()
-                .Select(u => new UserDetailsModel
-                {
-                    Id = u.Id,
-                    FirstName = u.FirstName,
-                    LastName = u.LastName,
-                    Email = u.Email,
-                    Role = u.Role,
-                    Code = u.Code,
-                    Departement = u.Departement
-                })
-                .Union(_context.Acheteurs.AsQueryable()
-                    .Select(u => new UserDetailsModel
-                    {
-                        Id = u.Id,
-                        FirstName = u.FirstName,
-                        LastName = u.LastName,
-                        Email = u.Email,
-                        Role = u.Role,
-                        Code = u.Code,
-                        Departement = u.Departement
-                    }))
-                .Union(_context.Demandeurs.AsQueryable()
-                    .Select(u => new UserDetailsModel
-                    {
-                        Id = u.Id,
-                        FirstName = u.FirstName,
-                        LastName = u.LastName,
-                        Email = u.Email,
-                        Role = u.Role,
-                        Code = u.Code,
-                        Departement = u.Departement
-                    }))
-                .Union(_context.Validateurs.AsQueryable()
-                    .Select(u => new UserDetailsModel
-                    {
-                        Id = u.Id,
-                        FirstName = u.FirstName,
-                        LastName = u.LastName,
-                        Email = u.Email,
-                        Role = u.Role,
-                        Code = u.Code,
-                        Departement = u.Departement
+                        Departement = u.Departement,
+                        IsActive = u.IsActive,
                     }));
 
+            // Apply search filter if provided
+            if (!string.IsNullOrEmpty(search))
+            {
+                string searchLower = search.ToLower();
+                usersQuery = usersQuery.Where(u =>
+                    u.Code.ToString().ToLower().Contains(searchLower) ||
+                    u.FirstName.ToLower().Contains(searchLower) ||
+                    u.LastName.ToLower().Contains(searchLower) ||
+                    u.Email.ToLower().Contains(searchLower));
+            }
+
+            // Apply role filter if provided
             if (!string.IsNullOrEmpty(role))
             {
-                users = users.Where(u => u.Role == role);
+                usersQuery = usersQuery.Where(u => u.Role == role);
             }
 
-            if (!string.IsNullOrEmpty(departement))
+            // Apply department filter if provided
+            if (!string.IsNullOrEmpty(department))
             {
-                users = users.Where(u => u.Departement == departement);
+                usersQuery = usersQuery.Where(u => u.Departement == department);
             }
 
-            var totalUsers = users.Count();
-            var paginatedUsers = users
+            var totalUsers = usersQuery.Count();
+            var paginatedUsers = usersQuery
+                .OrderBy(u => u.FirstName) // Add sorting if needed
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
                 .ToList();
@@ -171,10 +132,8 @@ namespace projetStage.Controllers
         [Authorize(Roles = "A")]
         public IActionResult UpdateUser([FromBody] UpdateUserModel model)
         {
-            var user = _context.Admins.SingleOrDefault(u => u.Code == model.Code) ??
-                       (User)_context.Acheteurs.SingleOrDefault(u => u.Code == model.Code) ??
-                       (User)_context.Demandeurs.SingleOrDefault(u => u.Code == model.Code) ??
-                       (User)_context.Validateurs.SingleOrDefault(u => u.Code == model.Code);
+                
+            var user = GetUser(model.Code);
 
             if (user == null)
             {
@@ -289,6 +248,53 @@ namespace projetStage.Controllers
             user.GetType().GetProperty("Email").SetValue(user, model.Email);
             user.GetType().GetProperty("Code").SetValue(user, model.Code);
             user.GetType().GetProperty("Departement").SetValue(user, model.Departement);
+        }
+
+        [HttpPatch("{userId}/block")]
+        [Authorize(Roles = "A")]
+        public IActionResult BlockUser(string userId)
+        {
+            var user = GetUser(Int32.Parse(userId));
+
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            user.IsActive = false;
+            _context.SaveChanges();
+            return NoContent();
+        }
+
+        [HttpPatch("{userId}/unblock")]
+        [Authorize(Roles = "A")]
+        public async Task<IActionResult> UnBlockUser(string userId)
+        {
+            var user = GetUser(Int32.Parse(userId));
+
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            user.IsActive = true;
+            _context.SaveChanges();
+            return NoContent();
+        }
+
+        [HttpPatch("{userId}/change-password")]
+        [Authorize(Roles = "A")]
+        public IActionResult ChangeUserPassword(string userId, [FromBody] ChangePasswordModel model) 
+        {
+           User user = GetUser(Int32.Parse(userId));
+            if (user == null) 
+            {
+                return NotFound("user not found !!");
+            }
+
+            user.Password = _passwordService.HashPassword(model.NewPassword);
+            _context.SaveChanges();
+            return Ok("Password changed successfully !");
         }
     }
 }

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using projetStage.Data;
 
@@ -11,9 +12,11 @@ using projetStage.Data;
 namespace projetStage.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240710123522_demandeFixedAndValidateur")]
+    partial class demandeFixedAndValidateur
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -156,7 +159,7 @@ namespace projetStage.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("AcheteurId")
+                    b.Property<int>("AcheteurId")
                         .HasColumnType("int");
 
                     b.Property<string>("Code")
@@ -164,21 +167,17 @@ namespace projetStage.Migrations
                         .HasColumnType("varchar(255)");
 
                     b.Property<string>("CommentCFO")
+                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<string>("CommentCOO")
+                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<int>("DemandeurId")
                         .HasColumnType("int");
 
-                    b.Property<bool>("IsValidateurCFORejected")
-                        .HasColumnType("tinyint(1)");
-
                     b.Property<bool>("IsValidateurCFOValidated")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("IsValidateurCOORejected")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("IsValidateurCOOValidated")
@@ -190,16 +189,16 @@ namespace projetStage.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("ValidatedOrRejectedByCFOAt")
+                    b.Property<DateTime?>("ValidatedByCFOAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<DateTime?>("ValidatedOrRejectedByCOOAt")
+                    b.Property<DateTime?>("ValidatedByCOOAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<int?>("ValidateurCFOId")
+                    b.Property<int>("ValidateurCFOId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("ValidateurCOOId")
+                    b.Property<int>("ValidateurCOOId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
@@ -227,6 +226,7 @@ namespace projetStage.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("BonCommande")
+                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAt")
@@ -464,7 +464,9 @@ namespace projetStage.Migrations
                 {
                     b.HasOne("projetStage.Models.Acheteur", "Acheteur")
                         .WithMany("Demandes")
-                        .HasForeignKey("AcheteurId");
+                        .HasForeignKey("AcheteurId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("projetStage.Models.Demandeur", "Demandeur")
                         .WithMany("Demandes")
@@ -475,12 +477,14 @@ namespace projetStage.Migrations
                     b.HasOne("projetStage.Models.Validateur", "ValidateurCFO")
                         .WithMany("DemandesCFO")
                         .HasForeignKey("ValidateurCFOId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("projetStage.Models.Validateur", "ValidateurCOO")
                         .WithMany("DemandesCOO")
                         .HasForeignKey("ValidateurCOOId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Acheteur");
 

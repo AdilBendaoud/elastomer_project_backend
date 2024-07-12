@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using projetStage.Data;
 
@@ -11,9 +12,11 @@ using projetStage.Data;
 namespace projetStage.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240710111900_demandeFixed")]
+    partial class demandeFixed
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -156,33 +159,29 @@ namespace projetStage.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("AcheteurId")
+                    b.Property<int>("AcheteurId")
                         .HasColumnType("int");
 
-                    b.Property<string>("Code")
+                    b.Property<string>("Comment1")
                         .IsRequired()
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("CommentCFO")
                         .HasColumnType("longtext");
 
-                    b.Property<string>("CommentCOO")
+                    b.Property<string>("Comment2")
+                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<int>("DemandeurId")
                         .HasColumnType("int");
 
-                    b.Property<bool>("IsValidateurCFORejected")
+                    b.Property<bool?>("IsValidateur1Validated")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<bool>("IsValidateurCFOValidated")
+                    b.Property<bool?>("IsValidateur2Validated")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<bool>("IsValidateurCOORejected")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("IsValidateurCOOValidated")
-                        .HasColumnType("tinyint(1)");
+                    b.Property<string>("Num")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
 
                     b.Property<DateTime?>("OpenedAt")
                         .HasColumnType("datetime(6)");
@@ -190,30 +189,30 @@ namespace projetStage.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("ValidatedOrRejectedByCFOAt")
+                    b.Property<DateTime?>("ValidatedByV1At")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<DateTime?>("ValidatedOrRejectedByCOOAt")
+                    b.Property<DateTime?>("ValidatedByV2At")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<int?>("ValidateurCFOId")
+                    b.Property<int>("ValidateurId1")
                         .HasColumnType("int");
 
-                    b.Property<int?>("ValidateurCOOId")
+                    b.Property<int>("ValidateurId2")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
                     b.HasIndex("AcheteurId");
 
-                    b.HasIndex("Code")
-                        .IsUnique();
-
                     b.HasIndex("DemandeurId");
 
-                    b.HasIndex("ValidateurCFOId");
+                    b.HasIndex("Num")
+                        .IsUnique();
 
-                    b.HasIndex("ValidateurCOOId");
+                    b.HasIndex("ValidateurId1");
+
+                    b.HasIndex("ValidateurId2");
 
                     b.ToTable("Demandes");
                 });
@@ -227,6 +226,7 @@ namespace projetStage.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("BonCommande")
+                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAt")
@@ -349,9 +349,6 @@ namespace projetStage.Migrations
                     b.Property<decimal>("Prix")
                         .HasColumnType("decimal(65,30)");
 
-                    b.Property<int>("Qtt")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("DemandeId");
@@ -464,7 +461,9 @@ namespace projetStage.Migrations
                 {
                     b.HasOne("projetStage.Models.Acheteur", "Acheteur")
                         .WithMany("Demandes")
-                        .HasForeignKey("AcheteurId");
+                        .HasForeignKey("AcheteurId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("projetStage.Models.Demandeur", "Demandeur")
                         .WithMany("Demandes")
@@ -472,23 +471,25 @@ namespace projetStage.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("projetStage.Models.Validateur", "ValidateurCFO")
-                        .WithMany("DemandesCFO")
-                        .HasForeignKey("ValidateurCFOId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                    b.HasOne("projetStage.Models.Validateur", "Validateur1")
+                        .WithMany("DemandesAsValidateur1")
+                        .HasForeignKey("ValidateurId1")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
-                    b.HasOne("projetStage.Models.Validateur", "ValidateurCOO")
-                        .WithMany("DemandesCOO")
-                        .HasForeignKey("ValidateurCOOId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                    b.HasOne("projetStage.Models.Validateur", "Validateur2")
+                        .WithMany("DemandesAsValidateur2")
+                        .HasForeignKey("ValidateurId2")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Acheteur");
 
                     b.Navigation("Demandeur");
 
-                    b.Navigation("ValidateurCFO");
+                    b.Navigation("Validateur1");
 
-                    b.Navigation("ValidateurCOO");
+                    b.Navigation("Validateur2");
                 });
 
             modelBuilder.Entity("projetStage.Models.DemandeArticle", b =>
@@ -571,9 +572,9 @@ namespace projetStage.Migrations
 
             modelBuilder.Entity("projetStage.Models.Validateur", b =>
                 {
-                    b.Navigation("DemandesCFO");
+                    b.Navigation("DemandesAsValidateur1");
 
-                    b.Navigation("DemandesCOO");
+                    b.Navigation("DemandesAsValidateur2");
                 });
 #pragma warning restore 612, 618
         }

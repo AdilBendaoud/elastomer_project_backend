@@ -1,10 +1,13 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using projetStage.Data;
 using projetStage.DTO.password;
 using projetStage.Models;
 using projetStage.Services;
+using System.Runtime.ConstrainedExecution;
+using System.Security.Claims;
 
 namespace projetStage.Controllers
 {
@@ -89,6 +92,34 @@ namespace projetStage.Controllers
             _context.SaveChanges();
 
             return Ok("Password has been reset successfully.");
+        }
+
+        [HttpPost("change-password")]
+        [Authorize]
+        public IActionResult ChangePassword([FromBody] ChangePasswordModel model)
+        {
+            var code = User.Claims.FirstOrDefault(c => c.Type == "Code")?.Value;
+            Console.WriteLine("this is the code {0}",code);
+            if (code == null)
+            {
+                return Unauthorized();
+            }
+
+            var user = _context.Admins.SingleOrDefault(u => u.Code == Int32.Parse(code)) ??
+                       (User)_context.Acheteurs.SingleOrDefault(u => u.Code == Int32.Parse(code)) ??
+                       (User)_context.Demandeurs.SingleOrDefault(u => u.Code == Int32.Parse(code)) ??
+                       (User)_context.Validateurs.SingleOrDefault(u => u.Code == Int32.Parse(code));
+
+            if (user == null)
+            {
+                return BadRequest("User not found.");
+            }
+
+            user.Password = _passwordService.HashPassword(model.NewPassword);
+            user.NeedsPasswordChange = false;
+            _context.SaveChanges();
+
+            return Ok("Password changed successfully.");
         }
     }
 }

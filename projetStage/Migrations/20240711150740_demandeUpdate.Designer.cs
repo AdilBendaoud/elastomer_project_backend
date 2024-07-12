@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using projetStage.Data;
 
@@ -11,9 +12,11 @@ using projetStage.Data;
 namespace projetStage.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240711150740_demandeUpdate")]
+    partial class demandeUpdate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -156,7 +159,7 @@ namespace projetStage.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("AcheteurId")
+                    b.Property<int>("AcheteurId")
                         .HasColumnType("int");
 
                     b.Property<string>("Code")
@@ -196,10 +199,10 @@ namespace projetStage.Migrations
                     b.Property<DateTime?>("ValidatedOrRejectedByCOOAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<int?>("ValidateurCFOId")
+                    b.Property<int>("ValidateurCFOId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("ValidateurCOOId")
+                    b.Property<int>("ValidateurCOOId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
@@ -227,6 +230,7 @@ namespace projetStage.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("BonCommande")
+                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAt")
@@ -464,7 +468,9 @@ namespace projetStage.Migrations
                 {
                     b.HasOne("projetStage.Models.Acheteur", "Acheteur")
                         .WithMany("Demandes")
-                        .HasForeignKey("AcheteurId");
+                        .HasForeignKey("AcheteurId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("projetStage.Models.Demandeur", "Demandeur")
                         .WithMany("Demandes")
@@ -475,12 +481,14 @@ namespace projetStage.Migrations
                     b.HasOne("projetStage.Models.Validateur", "ValidateurCFO")
                         .WithMany("DemandesCFO")
                         .HasForeignKey("ValidateurCFOId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("projetStage.Models.Validateur", "ValidateurCOO")
                         .WithMany("DemandesCOO")
                         .HasForeignKey("ValidateurCOOId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Acheteur");
 
