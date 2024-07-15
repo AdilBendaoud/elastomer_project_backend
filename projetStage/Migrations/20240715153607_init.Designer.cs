@@ -12,8 +12,8 @@ using projetStage.Data;
 namespace projetStage.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20240711151943_demandeIdAchteurFixed")]
-    partial class demandeIdAchteurFixed
+    [Migration("20240715153607_init")]
+    partial class init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,108 +24,6 @@ namespace projetStage.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
-
-            modelBuilder.Entity("projetStage.Models.Acheteur", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("Code")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Departement")
-                        .IsRequired()
-                        .HasMaxLength(4)
-                        .HasColumnType("varchar(4)");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("FirstName")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("LastName")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<bool>("NeedsPasswordChange")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Password")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(1)
-                        .HasColumnType("varchar(1)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("Acheteurs");
-                });
-
-            modelBuilder.Entity("projetStage.Models.Admin", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("Code")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Departement")
-                        .IsRequired()
-                        .HasMaxLength(4)
-                        .HasColumnType("varchar(4)");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("FirstName")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("LastName")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<bool>("NeedsPasswordChange")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Password")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(1)
-                        .HasColumnType("varchar(1)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("Admins");
-                });
 
             modelBuilder.Entity("projetStage.Models.Article", b =>
                 {
@@ -148,7 +46,7 @@ namespace projetStage.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Articles");
+                    b.ToTable("WESM_articles");
                 });
 
             modelBuilder.Entity("projetStage.Models.Demande", b =>
@@ -164,7 +62,7 @@ namespace projetStage.Migrations
 
                     b.Property<string>("Code")
                         .IsRequired()
-                        .HasColumnType("varchar(255)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("CommentCFO")
                         .HasColumnType("longtext");
@@ -209,32 +107,40 @@ namespace projetStage.Migrations
 
                     b.HasIndex("AcheteurId");
 
-                    b.HasIndex("Code")
-                        .IsUnique();
-
                     b.HasIndex("DemandeurId");
 
                     b.HasIndex("ValidateurCFOId");
 
                     b.HasIndex("ValidateurCOOId");
 
-                    b.ToTable("Demandes");
+                    b.ToTable("WESM_demandes");
                 });
 
             modelBuilder.Entity("projetStage.Models.DemandeArticle", b =>
                 {
-                    b.Property<int>("DemandeId")
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    b.Property<int>("ArticleId")
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ArticleId")
                         .HasColumnType("int");
 
                     b.Property<string>("BonCommande")
-                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<int>("DemandeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("longtext");
 
                     b.Property<int>("Qtt")
                         .HasColumnType("int");
@@ -243,11 +149,13 @@ namespace projetStage.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.HasKey("DemandeId", "ArticleId");
+                    b.HasKey("Id");
 
                     b.HasIndex("ArticleId");
 
-                    b.ToTable("DemandeArticles");
+                    b.HasIndex("DemandeId");
+
+                    b.ToTable("WESM_demandeArticles");
                 });
 
             modelBuilder.Entity("projetStage.Models.DemandeHistory", b =>
@@ -275,58 +183,7 @@ namespace projetStage.Migrations
 
                     b.HasIndex("DemandeId");
 
-                    b.ToTable("DemandeHistories");
-                });
-
-            modelBuilder.Entity("projetStage.Models.Demandeur", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("Code")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Departement")
-                        .IsRequired()
-                        .HasMaxLength(4)
-                        .HasColumnType("varchar(4)");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("FirstName")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("LastName")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<bool>("NeedsPasswordChange")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Password")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(1)
-                        .HasColumnType("varchar(1)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("Demandeurs");
+                    b.ToTable("WESM_demandeHistories");
                 });
 
             modelBuilder.Entity("projetStage.Models.Devis", b =>
@@ -362,7 +219,7 @@ namespace projetStage.Migrations
 
                     b.HasIndex("FournisseurId");
 
-                    b.ToTable("Devis");
+                    b.ToTable("WESM_devis");
                 });
 
             modelBuilder.Entity("projetStage.Models.Fournisseur", b =>
@@ -377,13 +234,17 @@ namespace projetStage.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<string>("Nom")
                         .IsRequired()
                         .HasColumnType("longtext");
 
                     b.HasKey("Id");
 
-                    b.ToTable("Fournisseurs");
+                    b.ToTable("WESM_fournisseurs");
                 });
 
             modelBuilder.Entity("projetStage.Models.PasswordResetToken", b =>
@@ -410,10 +271,10 @@ namespace projetStage.Migrations
                     b.HasIndex("Token")
                         .IsUnique();
 
-                    b.ToTable("PasswordResetTokens");
+                    b.ToTable("WESM_passwordResetTokens");
                 });
 
-            modelBuilder.Entity("projetStage.Models.Validateur", b =>
+            modelBuilder.Entity("projetStage.Models.User", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -440,6 +301,18 @@ namespace projetStage.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool>("IsAdmin")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsPurchaser")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsRequester")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsValidator")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -451,38 +324,34 @@ namespace projetStage.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(1)
-                        .HasColumnType("varchar(1)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("Validateurs");
+                    b.ToTable("WESM_users");
                 });
 
             modelBuilder.Entity("projetStage.Models.Demande", b =>
                 {
-                    b.HasOne("projetStage.Models.Acheteur", "Acheteur")
-                        .WithMany("Demandes")
-                        .HasForeignKey("AcheteurId");
+                    b.HasOne("projetStage.Models.User", "Acheteur")
+                        .WithMany()
+                        .HasForeignKey("AcheteurId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("projetStage.Models.Demandeur", "Demandeur")
+                    b.HasOne("projetStage.Models.User", "Demandeur")
                         .WithMany("Demandes")
                         .HasForeignKey("DemandeurId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("projetStage.Models.Validateur", "ValidateurCFO")
-                        .WithMany("DemandesCFO")
+                    b.HasOne("projetStage.Models.User", "ValidateurCFO")
+                        .WithMany()
                         .HasForeignKey("ValidateurCFOId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("projetStage.Models.Validateur", "ValidateurCOO")
-                        .WithMany("DemandesCOO")
+                    b.HasOne("projetStage.Models.User", "ValidateurCOO")
+                        .WithMany()
                         .HasForeignKey("ValidateurCOOId")
                         .OnDelete(DeleteBehavior.Restrict);
 
@@ -499,9 +368,7 @@ namespace projetStage.Migrations
                 {
                     b.HasOne("projetStage.Models.Article", "Article")
                         .WithMany("DemandeArticles")
-                        .HasForeignKey("ArticleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("ArticleId");
 
                     b.HasOne("projetStage.Models.Demande", "Demande")
                         .WithMany("DemandeArticles")
@@ -544,11 +411,6 @@ namespace projetStage.Migrations
                     b.Navigation("Fournisseur");
                 });
 
-            modelBuilder.Entity("projetStage.Models.Acheteur", b =>
-                {
-                    b.Navigation("Demandes");
-                });
-
             modelBuilder.Entity("projetStage.Models.Article", b =>
                 {
                     b.Navigation("DemandeArticles");
@@ -563,21 +425,14 @@ namespace projetStage.Migrations
                     b.Navigation("Devis");
                 });
 
-            modelBuilder.Entity("projetStage.Models.Demandeur", b =>
-                {
-                    b.Navigation("Demandes");
-                });
-
             modelBuilder.Entity("projetStage.Models.Fournisseur", b =>
                 {
                     b.Navigation("Devis");
                 });
 
-            modelBuilder.Entity("projetStage.Models.Validateur", b =>
+            modelBuilder.Entity("projetStage.Models.User", b =>
                 {
-                    b.Navigation("DemandesCFO");
-
-                    b.Navigation("DemandesCOO");
+                    b.Navigation("Demandes");
                 });
 #pragma warning restore 612, 618
         }

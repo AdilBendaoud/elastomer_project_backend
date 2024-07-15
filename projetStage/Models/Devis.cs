@@ -1,5 +1,8 @@
-﻿namespace projetStage.Models
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace projetStage.Models
 {
+    [Table("WESM_devis")]
     public class Devis
     {
         public int Id { get; set; }

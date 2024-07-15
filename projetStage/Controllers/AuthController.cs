@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using projetStage.Data;
@@ -7,6 +6,7 @@ using projetStage.DTO;
 using projetStage.Helper;
 using projetStage.Models;
 using projetStage.Services;
+using System.Linq;
 
 namespace projetStage.Controllers
 {
@@ -27,53 +27,53 @@ namespace projetStage.Controllers
             _context = context;
         }
 
-        private bool CodeExists (int code)
+        private bool CodeExists(int code)
         {
-            if (_context.Admins.Any(u => u.Code == code) ||
-                _context.Acheteurs.Any(u => u.Code == code) ||
-                _context.Validateurs.Any(u => u.Code == code) || 
-                _context.Demandeurs.Any(u => u.Code == code)) 
-            {
-                return true;
-            }
-            return false;
+            return _context.Users.Any(u => u.Code == code);
         }
 
-        private void CreateUser<T>(RegisterUserModel model, string role, DbSet<T> dbSet) where T : class
+        private void CreateUser(RegisterUserModel model, bool isAdmin, bool isRequester, bool isPurchaser, bool isValidator)
         {
             if (CodeExists(model.Code))
             {
                 throw new Exception("User with this code already exists.");
             }
 
-            if (_context.Set<T>().Any(u => EF.Property<string>(u, "Email") == model.Email))
+            if (_context.Users.Any(u => u.Email == model.Email))
             {
                 throw new Exception("User with this email already exists.");
             }
-            var password = PasswordGenerator.GeneratePassword();
-            var user = (T)Activator.CreateInstance(typeof(T));
-            user.GetType().GetProperty("FirstName").SetValue(user, model.FirstName);
-            user.GetType().GetProperty("LastName").SetValue(user, model.LastName);
-            user.GetType().GetProperty("Email").SetValue(user, model.Email);
-            user.GetType().GetProperty("Password").SetValue(user, _passwordService.HashPassword(password));
-            user.GetType().GetProperty("Role").SetValue(user, role);
-            user.GetType().GetProperty("Code").SetValue(user, model.Code);
-            user.GetType().GetProperty("Departement").SetValue(user, model.Departement);
-            user.GetType().GetProperty("NeedsPasswordChange").SetValue(user, true);
 
-            dbSet.Add(user);
+            var password = PasswordGenerator.GeneratePassword();
+            var user = new User
+            {
+                FirstName = model.FirstName,
+                LastName = model.LastName,
+                Email = model.Email,
+                Password = _passwordService.HashPassword(password),
+                Code = model.Code,
+                Departement = model.Departement,
+                NeedsPasswordChange = true,
+                IsActive = true,
+                IsAdmin = isAdmin,
+                IsPurchaser = isPurchaser,
+                IsRequester = isRequester,
+                IsValidator = isValidator
+            };
+
+            _context.Users.Add(user);
             _context.SaveChanges();
 
             _emailService.SendEmail(model.Email, "Account Created", $"Your temporary password is: {password}. Please log in and change your password.");
         }
 
         [HttpPost("register/admin")]
-        [Authorize(Roles = "A")]
-        public IActionResult RegisterAdmin([FromBody] RegisterUserModel admin)
+        
+        public IActionResult RegisterAdmin([FromBody] RegisterUserModel model)
         {
             try
             {
-                CreateUser(admin, "A", _context.Admins);
+                CreateUser(model, true, true, false, false);
                 return Ok("Admin registered successfully.");
             }
             catch (Exception ex)
@@ -84,12 +84,12 @@ namespace projetStage.Controllers
 
         [HttpPost("register/acheteur")]
         [Authorize(Roles = "A")]
-        public IActionResult RegisterAcheteur([FromBody] RegisterUserModel acheteur)
+        public IActionResult RegisterAcheteur([FromBody] RegisterUserModel model)
         {
             try
             {
-                CreateUser(acheteur, "P", _context.Acheteurs);
-                return Ok("Purchaseur registered successfully.");
+                CreateUser(model, false, true, true, false);
+                return Ok("Purchaser registered successfully.");
             }
             catch (Exception ex)
             {
@@ -99,12 +99,12 @@ namespace projetStage.Controllers
 
         [HttpPost("register/demandeur")]
         [Authorize(Roles = "A")]
-        public IActionResult RegisterDemandeur([FromBody] RegisterUserModel demandeur)
+        public IActionResult RegisterDemandeur([FromBody] RegisterUserModel model)
         {
             try
             {
-                CreateUser(demandeur, "D", _context.Demandeurs);
-                return Ok("Requesteur registered successfully.");
+                CreateUser(model, false, true, false, false);
+                return Ok("Requester registered successfully.");
             }
             catch (Exception ex)
             {
@@ -114,11 +114,11 @@ namespace projetStage.Controllers
 
         [HttpPost("register/validateur")]
         [Authorize(Roles = "A")]
-        public IActionResult RegisterValidateur([FromBody] RegisterUserModel validateur)
+        public IActionResult RegisterValidateur([FromBody] RegisterUserModel model)
         {
             try
             {
-                CreateUser(validateur, "V", _context.Validateurs);
+                CreateUser(model, false, false, false, true);
                 return Ok("Validator registered successfully.");
             }
             catch (Exception ex)
@@ -130,90 +130,31 @@ namespace projetStage.Controllers
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginModel model)
         {
-            var admin = _context.Admins.SingleOrDefault(u => u.Code == model.Code);
-            if (admin != null && _passwordService.VerifyPassword(admin.Password, model.Password))
+            var user = _context.Users.SingleOrDefault(u => u.Code == model.Code);
+            if (user != null && _passwordService.VerifyPassword(user.Password, model.Password))
             {
-                var token = _tokenService.GenerateToken(admin.Code.ToString(), "A");
-                return Ok(new
-                {
-                    Token = token,
-                    User = new
-                    {
-                        admin.Id,
-                        admin.FirstName,
-                        admin.LastName,
-                        admin.Email,
-                        admin.Code,
-                        admin.Departement,
-                        admin.Role,
-                        admin.NeedsPasswordChange,
-                        admin.IsActive
-                    }
-                });
-            }
+                var roles = new List<string>();
+                if (user.IsAdmin) roles.Add("A");
+                if (user.IsPurchaser) roles.Add("P");
+                if (user.IsRequester) roles.Add("D");
+                if (user.IsValidator) roles.Add("V");
 
-            var acheteur = _context.Acheteurs.SingleOrDefault(u => u.Code == model.Code);
-            if (acheteur != null && _passwordService.VerifyPassword(acheteur.Password, model.Password))
-            {
-                var token = _tokenService.GenerateToken(acheteur.Code.ToString(), "P");
-                return Ok(new
-                {
-                    Token = token,
-                    User = new
-                    {
-                        acheteur.Id,
-                        acheteur.FirstName,
-                        acheteur.LastName,
-                        acheteur.Email,
-                        acheteur.Code,
-                        acheteur.Departement,
-                        acheteur.Role,
-                        acheteur.NeedsPasswordChange,
-                        acheteur.IsActive
-                    }
-                });
-            }
+                var token = _tokenService.GenerateToken(user.Code.ToString(), roles);
 
-            var demandeur = _context.Demandeurs.SingleOrDefault(u => u.Code == model.Code);
-            if (demandeur != null && _passwordService.VerifyPassword(demandeur.Password, model.Password))
-            {
-                var token = _tokenService.GenerateToken(demandeur.Code.ToString(), "D");
                 return Ok(new
                 {
                     Token = token,
                     User = new
                     {
-                        demandeur.Id,
-                        demandeur.FirstName,
-                        demandeur.LastName,
-                        demandeur.Email,
-                        demandeur.Code,
-                        demandeur.Departement,
-                        demandeur.Role,
-                        demandeur.NeedsPasswordChange,
-                        demandeur.IsActive
-                    }
-                });
-            }
-
-            var validateur = _context.Validateurs.SingleOrDefault(u => u.Code == model.Code);
-            if (validateur != null && _passwordService.VerifyPassword(validateur.Password, model.Password))
-            {
-                var token = _tokenService.GenerateToken(validateur.Code.ToString(), "V");
-                return Ok(new
-                {
-                    Token = token,
-                    User = new
-                    {
-                        validateur.Id,
-                        validateur.FirstName,
-                        validateur.LastName,
-                        validateur.Email,
-                        validateur.Code,
-                        validateur.Departement,
-                        validateur.Role,
-                        validateur.NeedsPasswordChange,
-                        validateur.IsActive
+                        user.Id,
+                        user.FirstName,
+                        user.LastName,
+                        user.Email,
+                        user.Code,
+                        user.Departement,
+                        user.NeedsPasswordChange,
+                        user.IsActive,
+                        Roles = roles
                     }
                 });
             }

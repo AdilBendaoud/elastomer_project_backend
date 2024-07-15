@@ -30,6 +30,24 @@ namespace projetStage.Services
             _smtpClient.Send(mailMessage);
         }
 
+        public void SendEmailWithCC(string to, string subject, string body, string ccEmail)
+        {
+            var mailMessage = new MailMessage
+            {
+                From = new MailAddress(_from),
+                Subject = subject,
+                Body = body,
+                IsBodyHtml = true
+            };
+
+            mailMessage.To.Add(to);
+            if (!string.IsNullOrEmpty(ccEmail))
+            {
+                mailMessage.CC.Add(ccEmail);
+            }
+            _smtpClient.Send(mailMessage);
+        }
+
         public void UpdateSettings(EmailServiceSettingsModel settings)
         {
             var emailSettingsSection = _configuration.GetSection("EmailSettings");

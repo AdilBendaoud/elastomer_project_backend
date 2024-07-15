@@ -1,5 +1,8 @@
-﻿namespace projetStage.Models
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace projetStage.Models
 {
+    [Table("WESM_demandeHistories")]
     public class DemandeHistory
     {
         public int Id { get; set; }

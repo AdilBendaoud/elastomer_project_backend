@@ -33,12 +33,22 @@ public class DemandeController : ControllerBase
         _context.DemandeHistories.Add(history);
         await _context.SaveChangesAsync();
     }
+
     [HttpGet]
-    public async Task<IActionResult> GetAllDemandes(int code, int pageNumber=1, int pageSize=10) 
+    public async Task<IActionResult> GetAllDemandes(int userCode, int pageNumber=1, int pageSize=10) 
     {
-        var demandes = _context.Demandes
-        .Where(d => d.Demandeur.Code == code)
-        .Include(d => d.Demandeur);
+        User user = GetUser(userCode);
+        if (user == null) 
+        { 
+            return NotFound("User not Found !");
+        }
+
+        var demandes = _context.Demandes.Include(d => d.Demandeur);
+
+        if (user.IsRequester)
+        {
+            demandes.Where(d => d.Demandeur.Code == userCode);
+        }
 
         var totalDemandes = await demandes.CountAsync();
         var paginatedDemandes = await demandes
@@ -62,11 +72,15 @@ public class DemandeController : ControllerBase
     public async Task<IActionResult> GetArticle(string demandeCode) 
     {
         var articles = await _context.DemandeArticles
-            .Where(da => da.Demande.Code == demandeCode)
-            .Include(da=> da.Article)
+            .Select(da => new CreateDemandeArticleModel
+            {
+                Name = da.ArticleId != null ? da.Article.Nom : da.Name,
+                Description = da.ArticleId != null ? da.Article.Description : da.Description,
+                Quantity = da.Qtt
+            })
             .ToListAsync();
 
-        if(articles == null) 
+        if (articles == null)
         {
             return NotFound();
         }
@@ -148,33 +162,48 @@ public class DemandeController : ControllerBase
 
 
     [HttpGet("products-suggestions")]
-    public async Task<IActionResult> GetSuggestions(string name) 
+    public async Task<IActionResult> GetSuggestions([FromQuery] string name = null, [FromQuery] string description = null)
     {
-        var suggestions = await _context.Articles.Where(a => a.Nom.Contains(name)).ToListAsync();
+        ICollection<Article> suggestions = new List<Article>();
+
+        if (!string.IsNullOrEmpty(name))
+        {
+            suggestions = await _context.Articles.Where(a => a.Nom.Contains(name)).ToListAsync();
+        }
+
+        if (!string.IsNullOrEmpty(description)) 
+        {
+            suggestions = await _context.Articles.Where(a => a.Description.Contains(description)).ToListAsync();
+        }
+
         return Ok(suggestions);
     }
 
     [HttpGet("generate-code/{demandeurCode}")]
     public async Task<IActionResult> GenerateDemandeCode(int demandeurCode)
     {
-        var demandeur = await _context.Demandeurs.FirstAsync(d => d.Code == demandeurCode);
+        var demandeur = await _context.Users.FirstAsync(u => u.Code == demandeurCode);
         if (demandeur == null)
         {
             return NotFound();
         }
 
         string departmentCode = demandeur.Departement;
-        
-        int count = await _context.Demandes.Where(d => d.Demandeur.Departement == departmentCode).CountAsync();
-        string newCode = $"DA{departmentCode}{(count + 1):D4}";
+        int currentYear = DateTime.UtcNow.Year % 100; // Get the last two digits of the year
+        string yearCode = currentYear.ToString("D2");
+
+        int count = await _context.Demandes
+                              .Where(d => d.Demandeur.Departement == departmentCode && d.OpenedAt.Value.Year % 100 == currentYear)
+                              .CountAsync();
+        string newCode = $"DA{departmentCode}{yearCode}{(count + 1):D4}";
         return Ok(new { Code = newCode });
-       
+
     }
 
     [HttpPost]
     public async Task<IActionResult> CreateDemande([FromBody] CreateDemandeModel model)
     {
-        var demandeur = _context.Demandeurs.SingleOrDefault(u => u.Code == model.DemandeurCode);
+        var demandeur = _context.Users.SingleOrDefault(u => u.Id == model.DemandeurId && u.IsRequester);
         if (demandeur == null)
         {
             return NotFound();
@@ -202,23 +231,15 @@ public class DemandeController : ControllerBase
             // If article doesn't exist, create and save it
             if (existingArticle == null)
             {
-                var newArticle = new Article
-                {
-                    Nom = article.Name,
-                    Description = article.Description,
-                    CreatedAt = DateTime.UtcNow,
-                };
-                _context.Articles.Add(newArticle);
-                await _context.SaveChangesAsync();
-
                 // Create DemandeArticle with the new article
                 var demandeArticle = new DemandeArticle
                 {
                     DemandeId = demande.Id,
-                    ArticleId = newArticle.Id,
                     CreatedAt = DateTime.UtcNow,
                     Qtt = article.Quantity,
-                    Status = "Created"
+                    Name = article.Name,
+                    Description = article.Description,
+                    Status = "Created",
                 };
                 _context.DemandeArticles.Add(demandeArticle);
             }
@@ -235,11 +256,10 @@ public class DemandeController : ControllerBase
                 };
                 _context.DemandeArticles.Add(demandeArticle);
             }
-
             await _context.SaveChangesAsync();
         }
 
-        await LogDemandeHistory(model.DemandeurCode, demande.Id, $"Initial creation of demande by {demandeur.FirstName} {demandeur.LastName}");
+        await LogDemandeHistory(model.DemandeurCode, demande.Id, $"Initial creation of request by {demandeur.FirstName} {demandeur.LastName}");
         return Ok("Request created");
     }
 
@@ -274,84 +294,85 @@ public class DemandeController : ControllerBase
         return NoContent();
     }
 
-    [HttpPut("{id}/validate")]
-    public async Task<IActionResult> ValidateDemande(int id, [FromBody] int validateurId)
-    {
-        var demande = await _context.Demandes.FindAsync(id);
-        if (demande == null)
-        {
-            return NotFound();
-        }
+    //[HttpPut("{id}/validate")]
+    //public async Task<IActionResult> ValidateDemande(int id, [FromBody] int validateurId)
+    //{
+    //    var demande = await _context.Demandes.FindAsync(id);
+    //    if (demande == null)
+    //    {
+    //        return NotFound();
+    //    }
 
-        var validator = await _context.Validateurs.FindAsync(validateurId);
+    //    var validator = await _context.Users.FindAsync(validateurId);
 
-        if (validator.Departement == "CFO")
-        {
-            demande.IsValidateurCFOValidated = true;
-            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
-            demande.ValidateurCFO = validator;
-        }
-        else if (validator.Departement == "COO")
-        {
-            demande.IsValidateurCOOValidated = true;
-            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
-            demande.ValidateurCOO = validator;
-        }
-        else
-        {
-            return Forbid();
-        }
+    //    if (validator.Departement == "CFO")
+    //    {
+    //        demande.IsValidateurCFOValidated = true;
+    //        demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
+    //        demande.ValidateurCFO = validator;
+    //    }
+    //    else if (validator.Departement == "COO")
+    //    {
+    //        demande.IsValidateurCOOValidated = true;
+    //        demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
+    //        demande.ValidateurCOO = validator;
+    //    }
+    //    else
+    //    {
+    //        return Forbid();
+    //    }
 
-        if (demande.IsValidateurCFOValidated == true && demande.IsValidateurCOOValidated == true)
-        {
-            demande.Status = DemandeStatus.Validated;
-        }
+    //    if (demande.IsValidateurCFOValidated == true && demande.IsValidateurCOOValidated == true)
+    //    {
+    //        demande.Status = DemandeStatus.Validated;
+    //    }
 
-        _context.Entry(demande).State = EntityState.Modified;
-        await _context.SaveChangesAsync();
+    //    _context.Entry(demande).State = EntityState.Modified;
+    //    await _context.SaveChangesAsync();
 
-        await LogDemandeHistory(validator.Code, demande.Id, $"Validated by user {validator.FirstName} {validator.LastName}");
+    //    await LogDemandeHistory(validator.Code, demande.Id, $"Validated by user {validator.FirstName} {validator.LastName}");
 
-        return NoContent();
-    }
+    //    return NoContent();
+    //}
 
-    [HttpPut("{id}/reject")]
-    public async Task<IActionResult> RejectDemande(int id, [FromBody] int validateurId)
-    {
-        var demande = await _context.Demandes.FindAsync(id);
-        if (demande == null)
-        {
-            return NotFound();
-        }
+    //[HttpPut("{id}/reject")]
+    //public async Task<IActionResult> RejectDemande(int id, [FromBody] int validateurId)
+    //{
+    //    var demande = await _context.Demandes.FindAsync(id);
+    //    if (demande == null)
+    //    {
+    //        return NotFound();
+    //    }
 
-        var validator = await _context.Validateurs.FindAsync(validateurId);
+    //    var validator = await _context.Validateurs.FindAsync(validateurId);
         
-        if (validator.Departement == "CFO")
-        {
-            demande.IsValidateurCFORejected = true;
-            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
-            demande.ValidateurCFO = validator;
-        }
-        else if (validator.Departement == "COO")
-        {
-            demande.IsValidateurCOORejected = true;
-            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
-            demande.ValidateurCOO = validator;
-        }
-        else
-        {
-            return Forbid();
-        }
+    //    if (validator.Departement == "CFO")
+    //    {
+    //        demande.IsValidateurCFORejected = true;
+    //        demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
+    //        demande.ValidateurCFO = validator;
+    //    }
+    //    else if (validator.Departement == "COO")
+    //    {
+    //        demande.IsValidateurCOORejected = true;
+    //        demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
+    //        demande.ValidateurCOO = validator;
+    //    }
+    //    else
+    //    {
+    //        return Forbid();
+    //    }
 
-        _context.Entry(demande).State = EntityState.Modified;
-        await _context.SaveChangesAsync();
+    //    _context.Entry(demande).State = EntityState.Modified;
+    //    await _context.SaveChangesAsync();
 
-        await LogDemandeHistory(validator.Code ,demande.Id, $"Rejected by user {validator.FirstName} {validator.LastName}");
+    //    await LogDemandeHistory(validator.Code ,demande.Id, $"Rejected by user {validator.FirstName} {validator.LastName}");
 
-        return NoContent();
-    }
+    //    return NoContent();
+    //}
 
     [HttpPut("{id}/markWO")]
+    [Authorize(Roles = "P")]
     public async Task<IActionResult> MarkDemandeWO(int id, [FromBody] int userCode)
     {
         var demande = await _context.Demandes.FindAsync(id);
@@ -360,7 +381,7 @@ public class DemandeController : ControllerBase
             return NotFound();
         }
 
-        var acheteur = _context.Acheteurs.SingleOrDefault(u => u.Code == userCode); // Assumes a common Users table for all roles
+        var acheteur = _context.Users.SingleOrDefault(u => u.Code == userCode);
 
         if (acheteur == null)
         {
@@ -378,50 +399,51 @@ public class DemandeController : ControllerBase
     }
 
 
-    [HttpPut("{id}/cancel")]
-    public async Task<IActionResult> DeleteDemande(int id, [FromBody] int userCode)
+    [HttpPut("{demandeCode}/cancel")]
+    public async Task<IActionResult> DeleteDemande(string demandeCode, [FromBody] CancelDemandeModel model)
     {
-        var demande = await _context.Demandes.FindAsync(id);
+        var demande = await _context.Demandes.FirstAsync(d => d.Code == demandeCode);
         if (demande == null)
         {
             return NotFound();
         }
 
-        var user = GetUser(userCode);
+        var user = GetUser(model.UserCode);
 
         if (user == null) 
         {
             return NotFound();
         }
 
-        if(user.Role == "D") 
+        if(user.IsRequester && !user.IsPurchaser)
         {
             if (demande.Status == DemandeStatus.Created)
             {
                 demande.Status = DemandeStatus.Cancel;
                 await _context.SaveChangesAsync();
-                await LogDemandeHistory(user.Code, demande.Id, $"Canceled by user {user.FirstName} {user.LastName}");
+                await LogDemandeHistory(user.Code, demande.Id, $"Cancelled by user {user.FirstName} {user.LastName}");
+                return Ok("Request Cancelled");
             }
             else 
-            { 
-                return BadRequest("Request is in WO can't be canceled");
+            {
+                return BadRequest("Request can't be cancelled");
             }
         }
 
-        if (user.Role == "P")
+        if (user.IsPurchaser)
         {
             if (demande.Status == DemandeStatus.WO)
             {
                 demande.Status = DemandeStatus.Cancel;
                 await _context.SaveChangesAsync();
-                await LogDemandeHistory(user.Code ,demande.Id, $"Canceled by user {user.FirstName} {user.LastName}");
+                await LogDemandeHistory(user.Code ,demande.Id, $"Cancelled by user {user.FirstName} {user.LastName}");
+                return Ok("Request Cancelled");
             }
             else
             {
-                return BadRequest("Request can't be canceled");
+                return BadRequest("Request can't be cancelled");
             }
         }
- 
         return NoContent();
     }
 
@@ -439,10 +461,7 @@ public class DemandeController : ControllerBase
 
     private User GetUser(int code)
     {
-        var user = _context.Admins.SingleOrDefault(u => u.Code == code) ??
-                   (User)_context.Acheteurs.SingleOrDefault(u => u.Code == code) ??
-                   (User)_context.Demandeurs.SingleOrDefault(u => u.Code == code) ??
-                   (User)_context.Validateurs.SingleOrDefault(u => u.Code == code);
+        var user = _context.Users.SingleOrDefault(u => u.Code == code);
         return user;
     }
 }

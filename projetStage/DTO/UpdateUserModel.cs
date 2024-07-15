@@ -2,12 +2,15 @@
 {
     public class UpdateUserModel
     {
-        public int Id { get; set; } // User ID to identify which user to update
+        public int Id { get; set; }
         public string FirstName { get; set; }
         public string LastName { get; set; }
         public string Email { get; set; }
         public int Code { get; set; }
         public string Departement { get; set; }
-        public string Role { get; set; } // Optional: Allow updating user role if needed
+        public bool IsAdmin { get; set; }
+        public bool IsPurchaser { get; set; }
+        public bool IsRequester { get; set; }
+        public bool IsValidator { get; set; }
     }
 }

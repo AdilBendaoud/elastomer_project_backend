@@ -1,7 +1,9 @@
-﻿namespace projetStage.Services
+﻿using projetStage.Models;
+
+namespace projetStage.Services
 {
     public interface ITokenService
     {
-        string GenerateToken(string email, string role);
+        string GenerateToken(string userCode, List<string> roles);
     }
 }
