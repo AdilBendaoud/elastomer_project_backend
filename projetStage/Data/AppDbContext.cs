@@ -7,7 +7,6 @@ namespace projetStage.Data
     public class AppDbContext : DbContext
     {
         public AppDbContext(DbContextOptions options) : base(options) { }
-
         public DbSet<User> Users { get; set; }
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
         public DbSet<Demande> Demandes { get; set; }
@@ -16,7 +15,7 @@ namespace projetStage.Data
         public DbSet<Devis> Devis { get; set; }
         public DbSet<Fournisseur> Fournisseurs { get; set; }
         public DbSet<DemandeHistory> DemandeHistories { get; set; }
-
+        public DbSet<SupplierRequest> SupplierRequests { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -36,10 +35,10 @@ namespace projetStage.Data
             modelBuilder.Entity<User>()
                 .Property(u => u.Id)
                 .ValueGeneratedOnAdd();
-            
+
             modelBuilder.Entity<Demande>().HasKey(u => u.Id);
             modelBuilder.Entity<Demande>().Property(u => u.Id).ValueGeneratedOnAdd();
-            
+
             modelBuilder.Entity<Article>().HasKey(u => u.Id);
             modelBuilder.Entity<Article>().Property(u => u.Id).ValueGeneratedOnAdd();
 
@@ -97,6 +96,16 @@ namespace projetStage.Data
                 .HasOne(d => d.Fournisseur)
                 .WithMany(f => f.Devis)
                 .HasForeignKey(d => d.FournisseurId);
+
+            modelBuilder.Entity<SupplierRequest>()
+               .HasOne(sr => sr.Demande)
+               .WithMany(d => d.SupplierRequests)
+               .HasForeignKey(sr => sr.DemandeId);
+
+            modelBuilder.Entity<SupplierRequest>()
+                .HasOne(sr => sr.Supplier)
+                .WithMany(s => s.SupplierRequests)
+                .HasForeignKey(sr => sr.SupplierId);
         }
     }
 }

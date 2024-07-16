@@ -33,5 +33,6 @@ namespace projetStage.Models
         public ICollection<DemandeArticle> DemandeArticles { get; set; }
         public ICollection<DemandeHistory> DemandeHistories { get; set; }
         public ICollection<Devis> Devis { get; set; }
+        public ICollection<SupplierRequest> SupplierRequests { get; set; }
     }
 }

@@ -24,11 +24,33 @@ namespace projetStage.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetSuppliers() 
+        public async Task<IActionResult> GetSuppliers([FromQuery] string demandeCode)
         {
-            var suppliers = _context.Fournisseurs;
+            if (string.IsNullOrEmpty(demandeCode))
+            {
+                return BadRequest("Demande code is required.");
+            }
+
+            // Get the Demande ID based on the demandeCode
+            var demande = await _context.Demandes.FirstOrDefaultAsync(d => d.Code == demandeCode);
+            if (demande == null)
+            {
+                return NotFound("Demande not found.");
+            }
+
+            // Get the list of suppliers and check if the request has been sent to each supplier
+            var suppliers = await _context.Fournisseurs
+                .Select(s => new
+                {
+                    s.Id,
+                    s.Nom,
+                    IsRequestSent = _context.SupplierRequests.Any(sr => sr.DemandeId == demande.Id && sr.SupplierId == s.Id)
+                })
+                .ToListAsync();
+
             return Ok(suppliers);
         }
+
         private async Task LogDemandeHistory(int userCode, int demandeId, string changeDetails)
         {
             var history = new DemandeHistory
@@ -78,7 +100,14 @@ namespace projetStage.Controllers
 
             foreach (var supplier in suppliers)
             {
-                _emailService.SendEmail(supplier.Email, demande.Code, emailBody);
+                var supplierRequest = new SupplierRequest
+                {
+                    DemandeId = demande.Id,
+                    SupplierId = supplier.Id,
+                    SentAt = DateTime.UtcNow
+                };
+                _context.SupplierRequests.Add(supplierRequest);
+                _emailService.SendEmail(purchaser.Email, supplier.Email, demande.Code, emailBody);
             }
 
             _emailService.SendEmail(purchaser.Email, demande.Code, emailBody);
@@ -87,16 +116,6 @@ namespace projetStage.Controllers
             demande.Status = DemandeStatus.WO;
 
             await LogDemandeHistory(model.UserCode, demande.Id, $"Offer sent to suppliers by {purchaser.FirstName} {purchaser.LastName}");
-            //foreach (var supplierId in model.SupplierIds)
-            //{
-            //    _context.DemandeSuppliers.Add(new DemandeSupplier
-            //    {
-            //        DemandeId = demande.Id,
-            //        SupplierId = supplierId,
-            //        SentAt = DateTime.UtcNow
-            //    });
-            //}
-
             await _context.SaveChangesAsync();
 
             return Ok("Request sent to suppliers successfully.");

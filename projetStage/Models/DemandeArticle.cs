@@ -16,5 +16,7 @@ namespace projetStage.Models
         public string? BonCommande { get; set; }
         public string? Name { get; set; }
         public string? Description { get; set; }
+        public string? FamilleDeProduit { get; set; }
+        public string? Destination { get; set; }
     }
 }

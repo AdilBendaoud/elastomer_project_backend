@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using projetStage.Data;
 
@@ -11,9 +12,11 @@ using projetStage.Data;
 namespace projetStage.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240716073051_addFamilleDeproduitToArticle")]
+    partial class addFamilleDeproduitToArticle
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -285,32 +288,6 @@ namespace projetStage.Migrations
                     b.ToTable("WESM_passwordResetTokens");
                 });
 
-            modelBuilder.Entity("projetStage.Models.SupplierRequest", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("DemandeId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("SentAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("SupplierId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DemandeId");
-
-                    b.HasIndex("SupplierId");
-
-                    b.ToTable("SupplierRequests");
-                });
-
             modelBuilder.Entity("projetStage.Models.User", b =>
                 {
                     b.Property<int>("Id")
@@ -448,25 +425,6 @@ namespace projetStage.Migrations
                     b.Navigation("Fournisseur");
                 });
 
-            modelBuilder.Entity("projetStage.Models.SupplierRequest", b =>
-                {
-                    b.HasOne("projetStage.Models.Demande", "Demande")
-                        .WithMany("SupplierRequests")
-                        .HasForeignKey("DemandeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("projetStage.Models.Fournisseur", "Supplier")
-                        .WithMany("SupplierRequests")
-                        .HasForeignKey("SupplierId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Demande");
-
-                    b.Navigation("Supplier");
-                });
-
             modelBuilder.Entity("projetStage.Models.Article", b =>
                 {
                     b.Navigation("DemandeArticles");
@@ -479,15 +437,11 @@ namespace projetStage.Migrations
                     b.Navigation("DemandeHistories");
 
                     b.Navigation("Devis");
-
-                    b.Navigation("SupplierRequests");
                 });
 
             modelBuilder.Entity("projetStage.Models.Fournisseur", b =>
                 {
                     b.Navigation("Devis");
-
-                    b.Navigation("SupplierRequests");
                 });
 
             modelBuilder.Entity("projetStage.Models.User", b =>

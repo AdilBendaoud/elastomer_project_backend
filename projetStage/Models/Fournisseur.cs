@@ -10,5 +10,6 @@ namespace projetStage.Models
         public string Adresse { get; set; }
         public string Email { get; set; }
         public ICollection<Devis> Devis { get; set; }
+        public ICollection<SupplierRequest> SupplierRequests { get; set; }
     }
 }
