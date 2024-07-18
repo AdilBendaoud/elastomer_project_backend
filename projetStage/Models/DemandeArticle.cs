@@ -18,5 +18,6 @@ namespace projetStage.Models
         public string? Description { get; set; }
         public string? FamilleDeProduit { get; set; }
         public string? Destination { get; set; }
+        public ICollection<DevisItem> DevisItems { get; set; }
     }
 }

@@ -81,6 +81,7 @@ public class DemandeController : ControllerBase
         var articles = await _context.DemandeArticles
             .Select(da => new CreateDemandeArticleModel
             {
+                Id = da.Id,
                 Name = da.ArticleId != null ? da.Article.Nom : da.Name,
                 Description = da.ArticleId != null ? da.Article.Description : da.Description,
                 Quantity = da.Qtt,
@@ -279,7 +280,7 @@ public class DemandeController : ControllerBase
         return Ok("Request created");
     }
 
-    [HttpGet("{demandeCode}/offers")]
+    [HttpGet("{demandeCode}/suppliers")]
     public async Task<IActionResult> GetOffers(string demandeCode)
     {
         var demande = await _context.Demandes.FirstAsync(d => d.Code == demandeCode);
@@ -287,57 +288,50 @@ public class DemandeController : ControllerBase
         {
             return NotFound();
         }
+        
         // Get the list of suppliers associated with the demande
         var suppliers = await _context.Fournisseurs
             .Select(s => new
             {
                 s.Id,
                 s.Nom,
-                Offer = _context.Devis
-                    .Where(o => o.Demande.Code == demandeCode && o.FournisseurId == s.Id)
-                    .Select(o => new
-                    {
-                        o.Id,
-                        o.Prix,
-                        o.Devise,
-                        o.DateReception
-                    })
-                    .FirstOrDefault()
+                Offer = _context.DevisItems
+                    .Where(o => o.DemandeArticle.Demande.Code == demandeCode && o.FournisseurId == s.Id)
+                    .ToArray()
             })
             .ToListAsync();
 
         return Ok(suppliers);
     }
 
-    [HttpPost("Offers")]
-    public async Task<IActionResult> AddOffersToDemande([FromBody] CreateDevis model)
+    [HttpGet("{demandeCode}/suppliers/{supplierId}")]
+    public async Task<IActionResult> GetOffers(string demandeCode, int supplierId)
     {
-        var demande = await _context.Demandes.FindAsync(model.DemandeId);
-        var fournisseur = await _context.Fournisseurs.FindAsync(model.FournisseurId);
-        if (demande == null || fournisseur == null)
+        var demande = await _context.Demandes.FirstAsync(d => d.Code == demandeCode);
+        if (demande == null)
         {
             return NotFound();
         }
 
-        var devis = new Devis
+        var supplier = await _context.Fournisseurs.FirstAsync(f=> f.Id == supplierId);
+        if (supplier == null)
         {
-            DemandeId = demande.Id,
-            FournisseurId = model.FournisseurId,
-            Prix = model.Prix,
-            Devise = model.Devise,
-            Qtt = model.Quantity,
-            DateReception = model.DateReception,
+            return NotFound();
+        }
+
+        // Get the list of suppliers associated with the demande
+        var supplierWithOffers = new
+        {
+            supplier.Id,
+            supplier.Nom,
+            Offer = _context.DevisItems
+                    .Where(o => o.DemandeArticle.Demande.Code == demandeCode && o.FournisseurId == supplier.Id)
+                    .FirstOrDefault()
         };
 
-        _context.Devis.Add(devis);
-        await _context.SaveChangesAsync();
-
-        var user = GetUser(model.UserCode);
-
-        await LogDemandeHistory(model.UserCode, demande.Id, $"Offer {devis.Id} added by user {user.FirstName} {user.LastName}");
-
-        return NoContent();
+        return Ok(supplierWithOffers);
     }
+
 
     //[HttpPut("{id}/validate")]
     //public async Task<IActionResult> ValidateDemande(int id, [FromBody] int validateurId)

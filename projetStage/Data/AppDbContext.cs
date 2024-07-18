@@ -12,7 +12,7 @@ namespace projetStage.Data
         public DbSet<Demande> Demandes { get; set; }
         public DbSet<Article> Articles { get; set; }
         public DbSet<DemandeArticle> DemandeArticles { get; set; }
-        public DbSet<Devis> Devis { get; set; }
+        public DbSet<DevisItem> DevisItems { get; set; }
         public DbSet<Fournisseur> Fournisseurs { get; set; }
         public DbSet<DemandeHistory> DemandeHistories { get; set; }
         public DbSet<SupplierRequest> SupplierRequests { get; set; }
@@ -87,16 +87,6 @@ namespace projetStage.Data
                 .WithMany(d => d.DemandeHistories)
                 .HasForeignKey(dh => dh.DemandeId);
 
-            modelBuilder.Entity<Devis>()
-                .HasOne(d => d.Demande)
-                .WithMany(d => d.Devis)
-                .HasForeignKey(d => d.DemandeId);
-
-            modelBuilder.Entity<Devis>()
-                .HasOne(d => d.Fournisseur)
-                .WithMany(f => f.Devis)
-                .HasForeignKey(d => d.FournisseurId);
-
             modelBuilder.Entity<SupplierRequest>()
                .HasOne(sr => sr.Demande)
                .WithMany(d => d.SupplierRequests)
@@ -106,6 +96,11 @@ namespace projetStage.Data
                 .HasOne(sr => sr.Supplier)
                 .WithMany(s => s.SupplierRequests)
                 .HasForeignKey(sr => sr.SupplierId);
+            
+            modelBuilder.Entity<DevisItem>()
+                .HasOne(di => di.DemandeArticle)
+                .WithMany(da => da.DevisItems)
+                .HasForeignKey(di => di.DemandeArticleId);
         }
     }
 }

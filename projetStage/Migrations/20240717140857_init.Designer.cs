@@ -12,8 +12,8 @@ using projetStage.Data;
 namespace projetStage.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20240716103852_addRequestSupplier")]
-    partial class addRequestSupplier
+    [Migration("20240717140857_init")]
+    partial class init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -208,23 +208,10 @@ namespace projetStage.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("DateReception")
-                        .HasColumnType("datetime(6)");
-
                     b.Property<int>("DemandeId")
                         .HasColumnType("int");
 
-                    b.Property<string>("Devise")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("FournisseurId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("Prix")
-                        .HasColumnType("decimal(65,30)");
-
-                    b.Property<int>("Qtt")
+                    b.Property<int?>("FournisseurId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
@@ -234,6 +221,47 @@ namespace projetStage.Migrations
                     b.HasIndex("FournisseurId");
 
                     b.ToTable("WESM_devis");
+                });
+
+            modelBuilder.Entity("projetStage.Models.DevisItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly>("Delay")
+                        .HasColumnType("date");
+
+                    b.Property<int>("DemandeArticleId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DevisId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Devise")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("FournisseurId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DemandeArticleId");
+
+                    b.HasIndex("DevisId");
+
+                    b.HasIndex("FournisseurId");
+
+                    b.ToTable("DevisItems");
                 });
 
             modelBuilder.Entity("projetStage.Models.Fournisseur", b =>
@@ -440,13 +468,32 @@ namespace projetStage.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("projetStage.Models.Fournisseur", "Fournisseur")
+                    b.HasOne("projetStage.Models.Fournisseur", null)
                         .WithMany("Devis")
+                        .HasForeignKey("FournisseurId");
+
+                    b.Navigation("Demande");
+                });
+
+            modelBuilder.Entity("projetStage.Models.DevisItem", b =>
+                {
+                    b.HasOne("projetStage.Models.DemandeArticle", "DemandeArticle")
+                        .WithMany("DevisItems")
+                        .HasForeignKey("DemandeArticleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("projetStage.Models.Devis", null)
+                        .WithMany("DevisItems")
+                        .HasForeignKey("DevisId");
+
+                    b.HasOne("projetStage.Models.Fournisseur", "Fournisseur")
+                        .WithMany()
                         .HasForeignKey("FournisseurId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Demande");
+                    b.Navigation("DemandeArticle");
 
                     b.Navigation("Fournisseur");
                 });
@@ -484,6 +531,16 @@ namespace projetStage.Migrations
                     b.Navigation("Devis");
 
                     b.Navigation("SupplierRequests");
+                });
+
+            modelBuilder.Entity("projetStage.Models.DemandeArticle", b =>
+                {
+                    b.Navigation("DevisItems");
+                });
+
+            modelBuilder.Entity("projetStage.Models.Devis", b =>
+                {
+                    b.Navigation("DevisItems");
                 });
 
             modelBuilder.Entity("projetStage.Models.Fournisseur", b =>

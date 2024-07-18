@@ -25,6 +25,10 @@ namespace projetStage.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Description = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    FamilleDeProduit = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Destination = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
                 },
                 constraints: table =>
@@ -156,6 +160,34 @@ namespace projetStage.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
+                name: "SupplierRequests",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                    DemandeId = table.Column<int>(type: "int", nullable: false),
+                    SupplierId = table.Column<int>(type: "int", nullable: false),
+                    SentAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SupplierRequests", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SupplierRequests_WESM_demandes_DemandeId",
+                        column: x => x.DemandeId,
+                        principalTable: "WESM_demandes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_SupplierRequests_WESM_fournisseurs_SupplierId",
+                        column: x => x.SupplierId,
+                        principalTable: "WESM_fournisseurs",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
                 name: "WESM_demandeArticles",
                 columns: table => new
                 {
@@ -172,6 +204,10 @@ namespace projetStage.Migrations
                     Name = table.Column<string>(type: "longtext", nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Description = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    FamilleDeProduit = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Destination = table.Column<string>(type: "longtext", nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4")
                 },
                 constraints: table =>
@@ -221,13 +257,8 @@ namespace projetStage.Migrations
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
-                    Prix = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
-                    Qtt = table.Column<int>(type: "int", nullable: false),
-                    DateReception = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    Devise = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    FournisseurId = table.Column<int>(type: "int", nullable: false),
-                    DemandeId = table.Column<int>(type: "int", nullable: false)
+                    DemandeId = table.Column<int>(type: "int", nullable: false),
+                    FournisseurId = table.Column<int>(type: "int", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -242,10 +273,72 @@ namespace projetStage.Migrations
                         name: "FK_WESM_devis_WESM_fournisseurs_FournisseurId",
                         column: x => x.FournisseurId,
                         principalTable: "WESM_fournisseurs",
+                        principalColumn: "Id");
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "DevisItems",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                    DemandeArticleId = table.Column<int>(type: "int", nullable: false),
+                    FournisseurId = table.Column<int>(type: "int", nullable: false),
+                    Quantity = table.Column<int>(type: "int", nullable: false),
+                    UnitPrice = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Devise = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Delay = table.Column<DateOnly>(type: "date", nullable: false),
+                    DevisId = table.Column<int>(type: "int", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DevisItems", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_DevisItems_WESM_demandeArticles_DemandeArticleId",
+                        column: x => x.DemandeArticleId,
+                        principalTable: "WESM_demandeArticles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_DevisItems_WESM_devis_DevisId",
+                        column: x => x.DevisId,
+                        principalTable: "WESM_devis",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_DevisItems_WESM_fournisseurs_FournisseurId",
+                        column: x => x.FournisseurId,
+                        principalTable: "WESM_fournisseurs",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DevisItems_DemandeArticleId",
+                table: "DevisItems",
+                column: "DemandeArticleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DevisItems_DevisId",
+                table: "DevisItems",
+                column: "DevisId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DevisItems_FournisseurId",
+                table: "DevisItems",
+                column: "FournisseurId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierRequests_DemandeId",
+                table: "SupplierRequests",
+                column: "DemandeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierRequests_SupplierId",
+                table: "SupplierRequests",
+                column: "SupplierId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_WESM_demandeArticles_ArticleId",
@@ -309,16 +402,22 @@ namespace projetStage.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "WESM_demandeArticles");
+                name: "DevisItems");
+
+            migrationBuilder.DropTable(
+                name: "SupplierRequests");
 
             migrationBuilder.DropTable(
                 name: "WESM_demandeHistories");
 
             migrationBuilder.DropTable(
-                name: "WESM_devis");
+                name: "WESM_passwordResetTokens");
 
             migrationBuilder.DropTable(
-                name: "WESM_passwordResetTokens");
+                name: "WESM_demandeArticles");
+
+            migrationBuilder.DropTable(
+                name: "WESM_devis");
 
             migrationBuilder.DropTable(
                 name: "WESM_articles");

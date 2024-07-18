@@ -197,7 +197,7 @@ namespace projetStage.Migrations
                     b.ToTable("WESM_demandeHistories");
                 });
 
-            modelBuilder.Entity("projetStage.Models.Devis", b =>
+            modelBuilder.Entity("projetStage.Models.DevisItem", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -205,10 +205,10 @@ namespace projetStage.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("DateReception")
-                        .HasColumnType("datetime(6)");
+                    b.Property<DateOnly>("Delay")
+                        .HasColumnType("date");
 
-                    b.Property<int>("DemandeId")
+                    b.Property<int>("DemandeArticleId")
                         .HasColumnType("int");
 
                     b.Property<string>("Devise")
@@ -218,19 +218,19 @@ namespace projetStage.Migrations
                     b.Property<int>("FournisseurId")
                         .HasColumnType("int");
 
-                    b.Property<decimal>("Prix")
-                        .HasColumnType("decimal(65,30)");
-
-                    b.Property<int>("Qtt")
+                    b.Property<int>("Quantity")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("decimal(65,30)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DemandeId");
+                    b.HasIndex("DemandeArticleId");
 
                     b.HasIndex("FournisseurId");
 
-                    b.ToTable("WESM_devis");
+                    b.ToTable("DevisItems");
                 });
 
             modelBuilder.Entity("projetStage.Models.Fournisseur", b =>
@@ -429,21 +429,21 @@ namespace projetStage.Migrations
                     b.Navigation("Demande");
                 });
 
-            modelBuilder.Entity("projetStage.Models.Devis", b =>
+            modelBuilder.Entity("projetStage.Models.DevisItem", b =>
                 {
-                    b.HasOne("projetStage.Models.Demande", "Demande")
-                        .WithMany("Devis")
-                        .HasForeignKey("DemandeId")
+                    b.HasOne("projetStage.Models.DemandeArticle", "DemandeArticle")
+                        .WithMany("DevisItems")
+                        .HasForeignKey("DemandeArticleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("projetStage.Models.Fournisseur", "Fournisseur")
-                        .WithMany("Devis")
+                        .WithMany("DevisItems")
                         .HasForeignKey("FournisseurId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Demande");
+                    b.Navigation("DemandeArticle");
 
                     b.Navigation("Fournisseur");
                 });
@@ -478,14 +478,17 @@ namespace projetStage.Migrations
 
                     b.Navigation("DemandeHistories");
 
-                    b.Navigation("Devis");
-
                     b.Navigation("SupplierRequests");
+                });
+
+            modelBuilder.Entity("projetStage.Models.DemandeArticle", b =>
+                {
+                    b.Navigation("DevisItems");
                 });
 
             modelBuilder.Entity("projetStage.Models.Fournisseur", b =>
                 {
-                    b.Navigation("Devis");
+                    b.Navigation("DevisItems");
 
                     b.Navigation("SupplierRequests");
                 });

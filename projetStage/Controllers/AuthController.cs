@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using projetStage.Data;
 using projetStage.DTO;
+using projetStage.DTO.users;
 using projetStage.Helper;
 using projetStage.Models;
 using projetStage.Services;

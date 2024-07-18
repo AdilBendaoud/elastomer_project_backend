@@ -1,4 +1,4 @@
-﻿namespace projetStage.DTO
+﻿namespace projetStage.DTO.users
 {
     public class RegisterUserModel
     {

@@ -1,6 +1,6 @@
-﻿namespace projetStage.DTO
+﻿namespace projetStage.DTO.users
 {
-    public class UpdateUserModel
+    public class UserDetailsModel
     {
         public int Id { get; set; }
         public string FirstName { get; set; }
@@ -8,6 +8,7 @@
         public string Email { get; set; }
         public int Code { get; set; }
         public string Departement { get; set; }
+        public bool IsActive { get; set; }
         public bool IsAdmin { get; set; }
         public bool IsPurchaser { get; set; }
         public bool IsRequester { get; set; }
