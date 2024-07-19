@@ -19,6 +19,30 @@ namespace projetStage.Controllers
             _context = context;
         }
 
+        [HttpPost("sendForValidation")]
+        public async Task<IActionResult> SendForValidation([FromBody] RequestForValidation model) 
+        {
+            var demande = await _context.Demandes.FirstAsync(d => d.Code == model.demandeCode);
+            if (demande == null)
+            {
+                return NotFound();
+            }
+
+            var supplier = await _context.Fournisseurs.FirstAsync(d=> d.Id == model.supplierId);
+            if (demande == null)
+            {
+                return NotFound();
+            }
+
+            var selectedSupplier = await _context.SupplierRequests.FirstAsync(sr => sr.Demande == demande && sr.SupplierId == model.supplierId);
+            selectedSupplier.isSelectedForValidation = true;
+
+            demande.Status = DemandeStatus.WV;
+
+            _context.SaveChanges();
+            return Ok("Request sent for Validation");
+        }
+
         [HttpPost]
         public async Task<IActionResult> AddDevis([FromBody] List<AddDevisModel> models)
         {
@@ -38,7 +62,7 @@ namespace projetStage.Controllers
                         return NotFound($"DemandeArticle with ID {item.DemandeArticleId} not found.");
                     }
                     var existingDevisItem = await _context.DevisItems
-                        .FirstAsync(d => d.DemandeArticleId == item.DemandeArticleId && d.FournisseurId == supplier.Id);
+                        .SingleOrDefaultAsync(d => d.DemandeArticleId == item.DemandeArticleId && d.FournisseurId == supplier.Id);
 
                     if (existingDevisItem == null)
                     {

@@ -7,6 +7,7 @@
         WO,
         Cancel,
         Validated,
-        Rejected
+        Rejected,
+        WV
     }
 }

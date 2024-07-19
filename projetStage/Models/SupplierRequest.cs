@@ -7,6 +7,7 @@
         public Demande Demande { get; set; }
         public int SupplierId { get; set; }
         public Fournisseur Supplier { get; set; }
+        public bool isSelectedForValidation { get; set; }
         public DateTime SentAt { get; set; }
     }
 }

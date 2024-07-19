@@ -118,7 +118,7 @@ public class DemandeController : ControllerBase
         var existingDemandeArticles = _context.DemandeArticles.Where(da => da.Demande.Code == demandeCode);
         _context.DemandeArticles.RemoveRange(existingDemandeArticles);
         await _context.SaveChangesAsync();
-
+         
         // Add updated articles
         foreach (var article in model.Articles)
         {
@@ -288,20 +288,28 @@ public class DemandeController : ControllerBase
         {
             return NotFound();
         }
-        
-        // Get the list of suppliers associated with the demande
-        var suppliers = await _context.Fournisseurs
-            .Select(s => new
-            {
-                s.Id,
-                s.Nom,
-                Offer = _context.DevisItems
-                    .Where(o => o.DemandeArticle.Demande.Code == demandeCode && o.FournisseurId == s.Id)
-                    .ToArray()
-            })
+
+        var suppliersRequestSentTo = await _context.SupplierRequests
+                    .Where(sr=> sr.Demande.Code == demandeCode)
+                    .Select(s => new
+                    {
+                        s.Supplier.Id,
+                        s.Supplier.Nom,
+                        Offer = _context.DevisItems.Where(o => o.DemandeArticle.Demande.Code == demandeCode && o.FournisseurId == s.SupplierId)
+                        .ToArray()
+                    })
             .ToListAsync();
 
-        return Ok(suppliers);
+        return Ok(suppliersRequestSentTo);
+    }
+
+    [HttpGet("{demandeCode}")]
+    public async Task<IActionResult> GetDetails(string demandeCode) 
+    {
+        var demande = await _context.Demandes.FirstAsync(d=> d.Code == demandeCode);
+        if(demande == null)
+            { return NotFound(); }
+        return Ok(demande);
     }
 
     [HttpGet("{demandeCode}/suppliers/{supplierId}")]
@@ -457,6 +465,7 @@ public class DemandeController : ControllerBase
         }
         return NoContent();
     }
+
 
     [HttpGet("{demandeCode}/history")]
     public async Task<IActionResult> GetHistory(string demandeCode)
