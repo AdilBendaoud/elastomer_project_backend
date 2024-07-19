@@ -20,41 +20,52 @@ namespace projetStage.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> AddDevis([FromBody] AddDevisModel model)
+        public async Task<IActionResult> AddDevis([FromBody] List<AddDevisModel> models)
         {
-            var supplier = await _context.Fournisseurs.FindAsync(model.SupplierId);
-            if (supplier == null)
+            foreach (var model in models)
             {
-                return NotFound("Supplier not found.");
-            }
-
-            foreach (var item in model.Items) 
-            {
-                var existingDevisItem = _context.DevisItems.Find(item.Id);
-                
-                if (existingDevisItem == null)
+                var supplier = await _context.Fournisseurs.FindAsync(model.SupplierId);
+                if (supplier == null)
                 {
-                    var devisItem = new DevisItem
+                    return NotFound($"Supplier with ID {model.SupplierId} not found.");
+                }
+
+                foreach (var item in model.Items)
+                {
+                    var demandeArticle = await _context.DemandeArticles.FindAsync(item.DemandeArticleId);
+                    if (demandeArticle == null)
                     {
-                        UnitPrice = item.UnitPrice,
-                        Quantity = item.Quantity,
-                        Delay = item.Delay,
-                        DemandeArticleId = item.DemandeArticleId,
-                        Devise = item.Devise,
-                        FournisseurId = model.SupplierId,
-                    };
-                    _context.DevisItems.Add(devisItem);
-                }
-                else
-                {
-                    existingDevisItem.UnitPrice = item.UnitPrice;
-                    existingDevisItem.Quantity = item.Quantity;
-                    existingDevisItem.Devise = item.Devise;
-                    existingDevisItem.Delay = item.Delay;
-                }
-                await _context.SaveChangesAsync();
-            }
+                        return NotFound($"DemandeArticle with ID {item.DemandeArticleId} not found.");
+                    }
+                    var existingDevisItem = await _context.DevisItems
+                        .FirstAsync(d => d.DemandeArticleId == item.DemandeArticleId && d.FournisseurId == supplier.Id);
 
+                    if (existingDevisItem == null)
+                    {
+                        var devisItem = new DevisItem
+                        {
+                            DemandeArticleId = item.DemandeArticleId,
+                            FournisseurId = supplier.Id,
+                            Quantity = item.Quantity,
+                            UnitPrice = item.UnitPrice,
+                            Devise = item.Devise,
+                            Delay = item.Delay
+                        };
+
+                        _context.DevisItems.Add(devisItem);
+                    }
+                    else
+                    {
+                        existingDevisItem.DemandeArticleId = item.DemandeArticleId;
+                        existingDevisItem.FournisseurId = supplier.Id;
+                        existingDevisItem.Quantity = item.Quantity;
+                        existingDevisItem.UnitPrice = item.UnitPrice;
+                        existingDevisItem.Devise = item.Devise;
+                        existingDevisItem.Delay = item.Delay;
+                    }
+                    await _context.SaveChangesAsync();
+                }
+            }
             return Ok("Devis added successfully.");
         }
 
