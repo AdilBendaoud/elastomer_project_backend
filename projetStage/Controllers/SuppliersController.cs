@@ -145,5 +145,52 @@ namespace projetStage.Controllers
 
             return sb.ToString();
         }
+
+        [HttpGet("selected-supplier/{requestCode}")]
+        //[Authorize(Roles = "V")]
+        public async Task<IActionResult> GetSelectedSupplier(string requestCode)
+        {
+            var demande = await _context.Demandes
+                .Include(d => d.SupplierRequests)
+                .ThenInclude(sr => sr.Supplier)
+                .FirstOrDefaultAsync(d => d.Code == requestCode);
+
+            if (demande == null)
+            {
+                return NotFound("Demande not found.");
+            }
+
+            var selectedSupplierRequest = await _context.SupplierRequests
+                .Include(sr => sr.Supplier)
+                .FirstOrDefaultAsync(sr => sr.DemandeId == demande.Id && sr.isSelectedForValidation);
+
+            if (selectedSupplierRequest == null)
+            {
+                return NotFound("Selected supplier request not found.");
+            }
+
+            var offers = await _context.DevisItems
+                .Where(di => di.DemandeArticle.DemandeId == demande.Id && di.FournisseurId == selectedSupplierRequest.SupplierId)
+                .Select(di => new
+                {
+                    di.Id,
+                    di.DemandeArticleId,
+                    di.Quantity,
+                    di.UnitPrice,
+                    di.Devise,
+                    di.Delay
+                })
+                .ToListAsync();
+
+            var result = new
+            {
+                selectedSupplierRequest.Supplier.Id,
+                selectedSupplierRequest.Supplier.Nom,
+                Offers = offers
+            };
+
+            return Ok(result);
+        }
+
     }
 }

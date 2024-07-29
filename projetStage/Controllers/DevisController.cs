@@ -33,7 +33,11 @@ namespace projetStage.Controllers
             {
                 return NotFound();
             }
-
+            var previousSelectedSupplier = await _context.SupplierRequests.FirstOrDefaultAsync(sr => sr.Demande.Code == demande.Code && sr.SupplierId != model.supplierId && sr.isSelectedForValidation);
+            if (previousSelectedSupplier != null)
+            {
+                previousSelectedSupplier.isSelectedForValidation = false;
+            }
             var selectedSupplier = await _context.SupplierRequests.FirstAsync(sr => sr.Demande == demande && sr.SupplierId == model.supplierId);
             selectedSupplier.isSelectedForValidation = true;
 

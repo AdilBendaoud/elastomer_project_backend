@@ -8,6 +8,8 @@
         Cancel,
         Validated,
         Rejected,
-        WV
+        WV,
+        COOValidated,
+        CFOValidated
     }
 }

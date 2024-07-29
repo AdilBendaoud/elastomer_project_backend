@@ -79,14 +79,15 @@ public class DemandeController : ControllerBase
         }
 
         var articles = await _context.DemandeArticles
-            .Select(da => new CreateDemandeArticleModel
+            .Select(da => new
             {
-                Id = da.Id,
+                da.Id,
                 Name = da.ArticleId != null ? da.Article.Nom : da.Name,
                 Description = da.ArticleId != null ? da.Article.Description : da.Description,
                 Quantity = da.Qtt,
                 FamilleDeProduit = da.ArticleId != null ? da.Article.FamilleDeProduit : da.FamilleDeProduit,
-                Destination = da.ArticleId != null ? da.Article.Destination : da.Destination
+                Destination = da.ArticleId != null ? da.Article.Destination : da.Destination,
+                purchaseOrder = da.BonCommande
             })
             .ToListAsync();
 
@@ -163,6 +164,24 @@ public class DemandeController : ControllerBase
         return Ok("Articles updated successfully.");
     }
 
+    [HttpPut("{demandeCode}/add-purchase-order")]
+    public async Task<IActionResult> AddPurchaseOrder(string demandeCode, [FromBody] List<AddPurchaseOrderModel> model)
+    {
+        var demande = await _context.Demandes.FirstOrDefaultAsync(d => d.Code == demandeCode);
+        if(demande == null)
+        {
+            return NotFound();
+        }
+
+        foreach (var article in model)
+        {
+            var demandeArticle = await _context.DemandeArticles.FindAsync(article.Id);
+            demandeArticle.BonCommande = article.PurchaseOrder;
+        }
+
+        _context.SaveChanges();
+        return Ok();
+    }
 
     [HttpGet("products-suggestions")]
     public async Task<IActionResult> GetSuggestions([FromQuery] string query, [FromQuery] string type)
@@ -341,82 +360,90 @@ public class DemandeController : ControllerBase
     }
 
 
-    //[HttpPut("{id}/validate")]
-    //public async Task<IActionResult> ValidateDemande(int id, [FromBody] int validateurId)
-    //{
-    //    var demande = await _context.Demandes.FindAsync(id);
-    //    if (demande == null)
-    //    {
-    //        return NotFound();
-    //    }
+    [HttpPut("{requestCode}/validate/{userCode}")]
+    public async Task<IActionResult> ValidateDemande(string requestCode, int userCode)
+    {
+        var demande = await _context.Demandes.FirstAsync(d=> d.Code == requestCode);
+        if (demande == null)
+        {
+            return NotFound();
+        }
 
-    //    var validator = await _context.Users.FindAsync(validateurId);
+        var validator = await _context.Users.FirstAsync(u=> u.Code == userCode);
 
-    //    if (validator.Departement == "CFO")
-    //    {
-    //        demande.IsValidateurCFOValidated = true;
-    //        demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
-    //        demande.ValidateurCFO = validator;
-    //    }
-    //    else if (validator.Departement == "COO")
-    //    {
-    //        demande.IsValidateurCOOValidated = true;
-    //        demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
-    //        demande.ValidateurCOO = validator;
-    //    }
-    //    else
-    //    {
-    //        return Forbid();
-    //    }
+        if (validator.Departement == "CFO")
+        {
+            demande.IsValidateurCFOValidated = true;
+            demande.IsValidateurCFORejected = false;
+            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
+            demande.ValidateurCFO = validator;
+            demande.Status = DemandeStatus.CFOValidated;
+        }
+        else if (validator.Departement == "COO")
+        {
+            demande.IsValidateurCOOValidated = true;
+            demande.IsValidateurCOORejected = false;
+            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
+            demande.ValidateurCOO = validator;
+            demande.Status = DemandeStatus.COOValidated;
+        }
+        else
+        {
+            return Forbid();
+        }
 
-    //    if (demande.IsValidateurCFOValidated == true && demande.IsValidateurCOOValidated == true)
-    //    {
-    //        demande.Status = DemandeStatus.Validated;
-    //    }
+        if (demande.IsValidateurCFOValidated == true && demande.IsValidateurCOOValidated == true)
+        {
+            demande.Status = DemandeStatus.Validated;
+        }
 
-    //    _context.Entry(demande).State = EntityState.Modified;
-    //    await _context.SaveChangesAsync();
+        _context.Entry(demande).State = EntityState.Modified;
+        await _context.SaveChangesAsync();
 
-    //    await LogDemandeHistory(validator.Code, demande.Id, $"Validated by user {validator.FirstName} {validator.LastName}");
+        await LogDemandeHistory(validator.Code, demande.Id, $"Validated by user {validator.FirstName} {validator.LastName}");
 
-    //    return NoContent();
-    //}
+        return Ok();
+    }
 
-    //[HttpPut("{id}/reject")]
-    //public async Task<IActionResult> RejectDemande(int id, [FromBody] int validateurId)
-    //{
-    //    var demande = await _context.Demandes.FindAsync(id);
-    //    if (demande == null)
-    //    {
-    //        return NotFound();
-    //    }
+    [HttpPut("{requestCode}/reject/{userCode}")]
+    public async Task<IActionResult> RejectDemande(string requestCode, int userCode)
+    {
+        var demande = await _context.Demandes.FirstAsync(d => d.Code == requestCode);
+        if (demande == null)
+        {
+            return NotFound();
+        }
 
-    //    var validator = await _context.Validateurs.FindAsync(validateurId);
+        var validator = await _context.Users.FirstAsync(u => u.Code == userCode);
 
-    //    if (validator.Departement == "CFO")
-    //    {
-    //        demande.IsValidateurCFORejected = true;
-    //        demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
-    //        demande.ValidateurCFO = validator;
-    //    }
-    //    else if (validator.Departement == "COO")
-    //    {
-    //        demande.IsValidateurCOORejected = true;
-    //        demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
-    //        demande.ValidateurCOO = validator;
-    //    }
-    //    else
-    //    {
-    //        return Forbid();
-    //    }
+        if (validator.Departement == "CFO")
+        {
+            demande.Status = DemandeStatus.Rejected;
+            demande.IsValidateurCFORejected = true;
+            demande.IsValidateurCFOValidated = false;
+            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
+            demande.ValidateurCFO = validator;
+        }
+        else if (validator.Departement == "COO")
+        {
+            demande.Status = DemandeStatus.Rejected;
+            demande.IsValidateurCOORejected = true;
+            demande.IsValidateurCOOValidated = false;
+            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
+            demande.ValidateurCOO = validator;
+        }
+        else
+        {
+            return Forbid();
+        }
 
-    //    _context.Entry(demande).State = EntityState.Modified;
-    //    await _context.SaveChangesAsync();
+        _context.Entry(demande).State = EntityState.Modified;
+        await _context.SaveChangesAsync();
 
-    //    await LogDemandeHistory(validator.Code ,demande.Id, $"Rejected by user {validator.FirstName} {validator.LastName}");
+        await LogDemandeHistory(validator.Code, demande.Id, $"Rejected by user {validator.FirstName} {validator.LastName}");
 
-    //    return NoContent();
-    //}
+        return Ok();
+    }
 
     [HttpPut("{demandeCode}/cancel")]
     public async Task<IActionResult> CancelDemande(string demandeCode, [FromBody] CancelDemandeModel model)
