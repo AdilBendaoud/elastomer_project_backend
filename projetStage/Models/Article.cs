@@ -11,6 +11,5 @@ namespace projetStage.Models
         public string FamilleDeProduit { get; set; }
         public string Destination { get; set; }
         public DateTime CreatedAt { get; set; }
-        public ICollection<DemandeArticle> DemandeArticles { get; set; }
     }
 }

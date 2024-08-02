@@ -76,12 +76,6 @@ namespace projetStage.Data
                 .WithMany(d => d.DemandeArticles)
                 .HasForeignKey(da => da.DemandeId);
 
-            modelBuilder.Entity<DemandeArticle>()
-               .HasOne(da => da.Article)
-               .WithMany(a => a.DemandeArticles)
-               .HasForeignKey(da => da.ArticleId)
-               .IsRequired(false);
-
             modelBuilder.Entity<DemandeHistory>()
                 .HasOne(dh => dh.Demande)
                 .WithMany(d => d.DemandeHistories)

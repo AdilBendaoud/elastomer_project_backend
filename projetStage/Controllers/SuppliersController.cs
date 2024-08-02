@@ -92,7 +92,6 @@ namespace projetStage.Controllers
             }
 
             var demandeArticles = await _context.DemandeArticles
-                .Include(da => da.Article)
                 .Where(da => da.DemandeId == demande.Id)
                 .ToListAsync();
 
@@ -130,14 +129,7 @@ namespace projetStage.Controllers
 
             foreach (var item in demandeArticles)
             {
-                if (item.Article == null)
-                {
-                    sb.AppendFormat("<tr><td>{0}</td><td>{1}</td><td>{2}</td></tr>", item.Name, item.Description, item.Qtt);
-                }
-                else
-                {
-                    sb.AppendFormat("<tr><td>{0}</td><td>{1}</td><td>{2}</td></tr>", item.Article.Nom, item.Article.Description, item.Qtt);
-                }
+                sb.AppendFormat("<tr><td>{0}</td><td>{1}</td><td>{2}</td></tr>", item.Name, item.Description, item.Qtt);
             }
 
             sb.Append("</table>");

@@ -8,8 +8,6 @@ namespace projetStage.Models
         public int Id { get; set; }
         public int DemandeId { get; set; }
         public Demande Demande { get; set; }
-        public int? ArticleId { get; set; }
-        public virtual Article Article { get; set; }
         public DateTime CreatedAt { get; set; }
         public int Qtt { get; set; }
         public string Status { get; set; }

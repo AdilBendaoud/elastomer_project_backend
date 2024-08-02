@@ -5,6 +5,7 @@ using projetStage.Data;
 using projetStage.DTO;
 using projetStage.DTO.demandes;
 using projetStage.Models;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -36,24 +37,68 @@ public class DemandeController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAllDemandes(int userCode, int pageNumber = 1, int pageSize = 10)
+    public async Task<IActionResult> GetAllDemandes(
+        int userCode,
+        int pageNumber = 1,
+        int pageSize = 10,
+        [FromQuery] string search = null,
+        [FromQuery] string status = null,
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null
+    )
     {
         User user = GetUser(userCode);
         if (user == null)
         {
-            return NotFound("User not Found !");
+            return NotFound("User not found!");
         }
 
-        var demandes = _context.Demandes.Include(d => d.Demandeur);
+        var demandes = _context.Demandes.Include(d => d.Demandeur).AsQueryable();
 
-        if (user.IsRequester)
+        if (user.IsRequester && !user.IsPurchaser)
         {
-            demandes.Where(d => d.Demandeur.Code == userCode);
+            demandes = demandes.Where(d => d.Demandeur.Code == userCode);
         }
+
+        if (!string.IsNullOrEmpty(search))
+        {
+            demandes = demandes.Where(d => d.Code.Contains(search) ||
+                                           d.Demandeur.FirstName.Contains(search) ||
+                                           d.Demandeur.LastName.Contains(search));
+        }
+
+        if (!string.IsNullOrEmpty(status))
+        {
+            if (Enum.TryParse(status, out DemandeStatus demandeStatus))
+            {
+                demandes = demandes.Where(d => d.Status == demandeStatus);
+            }
+        }
+
+        if (startDate.HasValue)
+        {
+            demandes = demandes.Where(d => d.OpenedAt >= startDate.Value);
+        }
+
+        if (endDate.HasValue)
+        {
+            demandes = demandes.Where(d => d.OpenedAt <= endDate.Value);
+        }
+
+        //if (!string.IsNullOrEmpty(sort))
+        //{
+        //    var sortParams = sort.Split(',');
+        //    var sortProperty = sortParams[0];
+        //    var sortOrder = sortParams.Length > 1 && sortParams[1].ToLower() == "desc" ? "desc" : "asc";
+        //    demandes = demandes.OrderBy($"{sortProperty} {sortOrder}");
+        //}
+        //else
+        //{
+        //    demandes = demandes.OrderBy(d => d.OpenedAt);
+        //}
 
         var totalDemandes = await demandes.CountAsync();
         var paginatedDemandes = await demandes
-            .OrderBy(d => d.OpenedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -69,6 +114,7 @@ public class DemandeController : ControllerBase
         return Ok(response);
     }
 
+
     [HttpGet("{demandeCode}/articles")]
     public async Task<IActionResult> GetArticle(string demandeCode)
     {
@@ -82,11 +128,11 @@ public class DemandeController : ControllerBase
             .Select(da => new
             {
                 da.Id,
-                Name = da.ArticleId != null ? da.Article.Nom : da.Name,
-                Description = da.ArticleId != null ? da.Article.Description : da.Description,
+                da.Name,
+                da.Description,
                 Quantity = da.Qtt,
-                FamilleDeProduit = da.ArticleId != null ? da.Article.FamilleDeProduit : da.FamilleDeProduit,
-                Destination = da.ArticleId != null ? da.Article.Destination : da.Destination,
+                da.FamilleDeProduit,
+                da.Destination,
                 purchaseOrder = da.BonCommande
             })
             .ToListAsync();
@@ -114,17 +160,12 @@ public class DemandeController : ControllerBase
         {
             return BadRequest("Demande ID mismatch.");
         }
-
-        // Clear existing articles for the demande
-        var existingDemandeArticles = _context.DemandeArticles.Where(da => da.Demande.Code == demandeCode);
-        _context.DemandeArticles.RemoveRange(existingDemandeArticles);
-        await _context.SaveChangesAsync();
          
         // Add updated articles
         foreach (var article in model.Articles)
         {
             // Check if the article already exists
-            var existingArticle = await _context.Articles.FirstOrDefaultAsync(a => a.Nom == article.Name && a.Description == article.Description);
+            var existingArticle = await _context.DemandeArticles.FindAsync(article.Id);
 
             // If article doesn't exist, create and save it
             if (existingArticle == null)
@@ -134,26 +175,26 @@ public class DemandeController : ControllerBase
                 var demandeArticle = new DemandeArticle
                 {
                     DemandeId = demande.Id,
+                    Name = article.Name,
+                    Description = article.Description,
                     Destination = article.Destination,
                     FamilleDeProduit = article.FamilleDeProduit,
                     CreatedAt = DateTime.UtcNow,
                     Qtt = article.Quantity,
-                    Status = "Updated"
+                    Status = "Created"
                 };
-                _context.DemandeArticles.Add(demandeArticle);
+                await _context.DemandeArticles.AddAsync(demandeArticle);
             }
             else
             {
                 // Create DemandeArticle with the existing article
-                var demandeArticle = new DemandeArticle
-                {
-                    DemandeId = demande.Id,
-                    ArticleId = existingArticle.Id,
-                    CreatedAt = DateTime.UtcNow,
-                    Qtt = article.Quantity,
-                    Status = "Updated"
-                };
-                _context.DemandeArticles.Add(demandeArticle);
+
+                existingArticle.Name = article.Name;
+                existingArticle.Description = article.Description;
+                existingArticle.Destination = article.Destination;
+                existingArticle.Qtt = article.Quantity;
+
+                await _context.SaveChangesAsync();
             }
 
             await _context.SaveChangesAsync();
@@ -186,28 +227,104 @@ public class DemandeController : ControllerBase
     [HttpGet("products-suggestions")]
     public async Task<IActionResult> GetSuggestions([FromQuery] string query, [FromQuery] string type)
     {
-        ICollection<Article> suggestions = new List<Article>();
+        var articleSuggestions = new List<Article>();
+        var demandeArticleSuggestions = new List<Article>();
 
         switch (type)
         {
             case "article":
-                suggestions = await _context.Articles.Where(a => a.Nom.Contains(query)).Distinct().ToListAsync();
+                articleSuggestions = await _context.Articles
+                    .Where(a => a.Nom.Contains(query))
+                    .Distinct()
+                    .ToListAsync();
+
+                demandeArticleSuggestions = await _context.DemandeArticles
+                .Where(da => da.Name.Contains(query))
+                .Distinct()
+                .Select(da => new Article
+                {
+                    Id = da.Id,
+                    Nom = da.Name,
+                    Description = da.Description,
+                    FamilleDeProduit = da.FamilleDeProduit,
+                    Destination = da.Destination
+                })
+                .ToListAsync();
                 break;
+
             case "description":
-                suggestions = await _context.Articles.Where(a => a.Description.Contains(query)).Distinct().ToListAsync();
+                articleSuggestions = await _context.Articles
+                    .Where(a => a.Description.Contains(query))
+                    .Distinct()
+                    .ToListAsync();
+
+                demandeArticleSuggestions = await _context.DemandeArticles
+                 .Where(da => da.Description.Contains(query))
+                 .Distinct()
+                 .Select(da => new Article
+                 {
+                     Id = da.Id,
+                     Nom = da.Name,
+                     Description = da.Description,
+                     FamilleDeProduit = da.FamilleDeProduit,
+                     Destination = da.Destination
+                 })
+                 .ToListAsync();
                 break;
+
             case "familleDeProduit":
-                suggestions = await _context.Articles.Where(a => a.FamilleDeProduit.Contains(query)).Distinct().ToListAsync();
+                articleSuggestions = await _context.Articles
+                    .Where(a => a.FamilleDeProduit.Contains(query))
+                    .Distinct()
+                    .ToListAsync();
+
+                demandeArticleSuggestions = await _context.DemandeArticles
+                .Where(da => da.FamilleDeProduit.Contains(query))
+                .Distinct()
+                .Select(da => new Article
+                {
+                    Id = da.Id,
+                    Nom = da.Name,
+                    Description = da.Description,
+                    FamilleDeProduit = da.FamilleDeProduit,
+                    Destination = da.Destination
+                })
+                .ToListAsync();
                 break;
+
             case "destination":
-                suggestions = await _context.Articles.Where(a => a.Destination.Contains(query)).Distinct().ToListAsync();
+                articleSuggestions = await _context.Articles
+                    .Where(a => a.Destination.Contains(query))
+                    .Distinct()
+                    .ToListAsync();
+
+                demandeArticleSuggestions = await _context.DemandeArticles
+                .Where(da => da.Destination.Contains(query))
+                .Distinct()
+                .Select(da => new Article
+                {
+                    Id = da.Id,
+                    Nom = da.Name,
+                    Description = da.Description,
+                    FamilleDeProduit = da.FamilleDeProduit,
+                    Destination = da.Destination
+                })
+                .ToListAsync();
                 break;
+
             default:
-                break;
+                return BadRequest("Invalid type parameter.");
         }
 
-        return Ok(suggestions);
+        var combinedSuggestions = articleSuggestions
+        .Concat(demandeArticleSuggestions)
+        .GroupBy(a => new { a.Nom, a.Description, a.FamilleDeProduit, a.Destination })
+        .Select(g => g.First())
+        .ToList();
+
+        return Ok(combinedSuggestions);
     }
+
 
     [HttpGet("generate-code/{demandeurCode}")]
     public async Task<IActionResult> GenerateDemandeCode(int demandeurCode)
@@ -255,43 +372,18 @@ public class DemandeController : ControllerBase
 
         foreach (var article in model.Articles)
         {
-            // Check if the article already exists
-            var existingArticle = await _context.Articles.FirstOrDefaultAsync(
-                a => a.Nom == article.Name &&
-                a.Description == article.Description && 
-                a.Destination == article.Destination && 
-                a.FamilleDeProduit == article.FamilleDeProduit);
-
-            // If article doesn't exist, create and save it
-            if (existingArticle == null)
+            var demandeArticle = new DemandeArticle
             {
-                // Create DemandeArticle with the new article
-                var demandeArticle = new DemandeArticle
-                {
-                    DemandeId = demande.Id,
-                    CreatedAt = DateTime.UtcNow,
-                    Qtt = article.Quantity,
-                    Destination = article.Destination,
-                    FamilleDeProduit = article.FamilleDeProduit,
-                    Name = article.Name,
-                    Description = article.Description,
-                    Status = "Created",
-                };
-                _context.DemandeArticles.Add(demandeArticle);
-            }
-            else
-            {
-                // Create DemandeArticle with the existing article
-                var demandeArticle = new DemandeArticle
-                {
-                    DemandeId = demande.Id,
-                    ArticleId = existingArticle.Id,
-                    CreatedAt = DateTime.UtcNow,
-                    Qtt = article.Quantity,
-                    Status = "Created"
-                };
-                _context.DemandeArticles.Add(demandeArticle);
-            }
+                DemandeId = demande.Id,
+                CreatedAt = DateTime.UtcNow,
+                Qtt = article.Quantity,
+                Destination = article.Destination,
+                FamilleDeProduit = article.FamilleDeProduit,
+                Name = article.Name,
+                Description = article.Description,
+                Status = "Created",
+            };
+            _context.DemandeArticles.Add(demandeArticle);
             await _context.SaveChangesAsync();
         }
 
@@ -383,7 +475,7 @@ public class DemandeController : ControllerBase
         {
             demande.IsValidateurCOOValidated = true;
             demande.IsValidateurCOORejected = false;
-            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
+            demande.ValidatedOrRejectedByCOOAt = DateTime.UtcNow;
             demande.ValidateurCOO = validator;
             demande.Status = DemandeStatus.COOValidated;
         }
@@ -416,11 +508,12 @@ public class DemandeController : ControllerBase
 
         var validator = await _context.Users.FirstAsync(u => u.Code == userCode);
 
-        if (validator.Departement == "CFO")
+        if (validator.Departement == "CFO" || validator.Departement == "COO")
         {
             demande.Status = DemandeStatus.Rejected;
             demande.IsValidateurCFORejected = true;
             demande.IsValidateurCFOValidated = false;
+            demande.IsValidateurCOOValidated = false;
             demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
             demande.ValidateurCFO = validator;
         }
@@ -428,6 +521,7 @@ public class DemandeController : ControllerBase
         {
             demande.Status = DemandeStatus.Rejected;
             demande.IsValidateurCOORejected = true;
+            demande.IsValidateurCFOValidated = false;
             demande.IsValidateurCOOValidated = false;
             demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
             demande.ValidateurCOO = validator;
@@ -491,6 +585,68 @@ public class DemandeController : ControllerBase
             }
         }
         return NoContent();
+    }
+
+    [HttpPut("{demandeCode}/done/{userCode}")]
+    public async Task<IActionResult> MarkAsDone(string demandeCode, int userCode)
+    {
+        var demande = await _context.Demandes.FirstAsync(d => d.Code == demandeCode);
+        if (demande == null)
+        {
+            return NotFound();
+        }
+
+        var user = GetUser(userCode);
+
+        if (user == null)
+        {
+            return NotFound();
+        }
+
+        if (user.IsPurchaser)
+        {
+            demande.Status = DemandeStatus.Done;
+            await _context.SaveChangesAsync();
+            await LogDemandeHistory(userCode, demande.Id, $"Request Mark as done by {user.FirstName} {user.LastName}");
+        }
+        return Ok();
+    }
+
+    [HttpPost("{demandeCode}/comment")]
+    public async Task<IActionResult> AddComment(string demandeCode, [FromBody] AddCommentModel model)
+    {
+        var demande = await _context.Demandes.FirstAsync(d => d.Code == demandeCode);
+        if (demande == null)
+        {
+            return NotFound();
+        }
+
+        var user = GetUser(model.UserCode);
+
+        if (user == null)
+        {
+            return NotFound();
+        }
+
+        if (user.IsValidator)
+        {
+            if(user.Departement == "COO")
+            {
+                demande.CommentCOO = model.Comment;
+                await _context.SaveChangesAsync();
+                await LogDemandeHistory(user.Code, demande.Id, $"{user.FirstName} {user.LastName} added a comment");
+                return Ok();
+            }
+            if(user.Departement == "CFO")
+            {
+                demande.CommentCFO = model.Comment;
+                await _context.SaveChangesAsync();
+                await LogDemandeHistory(user.Code, demande.Id, $"{user.FirstName} {user.LastName} added a comment");
+                return Ok();
+            }
+        }
+
+        return BadRequest();
     }
 
 

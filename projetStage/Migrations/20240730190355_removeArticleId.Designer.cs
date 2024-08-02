@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using projetStage.Data;
 
@@ -11,9 +12,11 @@ using projetStage.Data;
 namespace projetStage.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240730190355_removeArticleId")]
+    partial class removeArticleId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -129,6 +132,9 @@ namespace projetStage.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("ArticleId")
+                        .HasColumnType("int");
+
                     b.Property<string>("BonCommande")
                         .HasColumnType("longtext");
 
@@ -158,6 +164,8 @@ namespace projetStage.Migrations
                         .HasColumnType("longtext");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ArticleId");
 
                     b.HasIndex("DemandeId");
 
@@ -401,6 +409,10 @@ namespace projetStage.Migrations
 
             modelBuilder.Entity("projetStage.Models.DemandeArticle", b =>
                 {
+                    b.HasOne("projetStage.Models.Article", null)
+                        .WithMany("DemandeArticles")
+                        .HasForeignKey("ArticleId");
+
                     b.HasOne("projetStage.Models.Demande", "Demande")
                         .WithMany("DemandeArticles")
                         .HasForeignKey("DemandeId")
@@ -457,6 +469,11 @@ namespace projetStage.Migrations
                     b.Navigation("Demande");
 
                     b.Navigation("Supplier");
+                });
+
+            modelBuilder.Entity("projetStage.Models.Article", b =>
+                {
+                    b.Navigation("DemandeArticles");
                 });
 
             modelBuilder.Entity("projetStage.Models.Demande", b =>
