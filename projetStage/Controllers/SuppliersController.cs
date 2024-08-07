@@ -56,7 +56,7 @@ namespace projetStage.Controllers
             var history = new DemandeHistory
             {
                 DemandeId = demandeId,
-                DateChanged = DateTime.UtcNow,
+                DateChanged = DateTime.UtcNow.AddHours(1),
                 UserCode = userCode,
                 Details = changeDetails
             };
@@ -65,7 +65,7 @@ namespace projetStage.Controllers
         }
 
         [HttpPost("send-to-suppliers")]
-        [Authorize(Roles = "P")]
+        //[Authorize(Roles = "P")]
         public async Task<IActionResult> SendToSuppliers([FromBody] SendRequestToSuppliersModel model)
         {
             if (model == null || string.IsNullOrEmpty(model.RequestCode) || model.SupplierIds == null || !model.SupplierIds.Any())
@@ -103,7 +103,7 @@ namespace projetStage.Controllers
                 {
                     DemandeId = demande.Id,
                     SupplierId = supplier.Id,
-                    SentAt = DateTime.UtcNow
+                    SentAt = DateTime.UtcNow.AddHours(1)
                 };
                 _context.SupplierRequests.Add(supplierRequest);
                 _emailService.SendEmail(purchaser.Email, supplier.Email, demande.Code, emailBody);
@@ -167,7 +167,6 @@ namespace projetStage.Controllers
                 {
                     di.Id,
                     di.DemandeArticleId,
-                    di.Quantity,
                     di.UnitPrice,
                     di.Devise,
                     di.Delay

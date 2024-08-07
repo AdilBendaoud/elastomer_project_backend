@@ -1,6 +1,7 @@
 ﻿using System.Net.Mail;
 using System.Net;
 using projetStage.DTO;
+using System.Net.Http;
 
 namespace projetStage.Services
 {
@@ -42,6 +43,30 @@ namespace projetStage.Services
 
             mailMessage.To.Add(to);
             _smtpClient.Send(mailMessage);
+        }
+
+        public async Task SendEmailAsync(string subject, string body, List<string> toEmails, string ccEmail)
+        {
+            var mailMessage = new MailMessage
+            {
+                From = new MailAddress(_from),
+                Subject = subject,
+                Body = body,
+                IsBodyHtml = true
+            };
+
+            foreach (var toEmail in toEmails)
+            {
+                mailMessage.To.Add(toEmail);
+            }
+
+            // Add CC email address
+            if (!string.IsNullOrEmpty(ccEmail))
+            {
+                mailMessage.CC.Add(ccEmail);
+            }
+
+            await _smtpClient.SendMailAsync(mailMessage);
         }
 
         public void UpdateSettings(EmailServiceSettingsModel settings)

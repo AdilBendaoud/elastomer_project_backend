@@ -21,7 +21,7 @@ namespace projetStage.Controllers
         }
 
         [HttpPut("update-email-settings")]
-        [Authorize(Roles = "A")]
+        //[Authorize(Roles = "A")]
         public IActionResult UpdateEmailSettings([FromBody] EmailServiceSettingsModel model)
         {
             var emailSettingsSection = _configuration.GetSection("EmailSettings");
@@ -39,7 +39,7 @@ namespace projetStage.Controllers
         }
 
         [HttpGet("get-email-settings")]
-        [Authorize(Roles = "A")]
+        //[Authorize(Roles = "A")]
         public IActionResult GetEmailSettings()
         {
             var emailSettings = _configuration.GetSection("EmailSettings").Get<EmailServiceSettingsModel>();

@@ -33,7 +33,7 @@ namespace projetStage.Controllers
         }
 
         [HttpGet()]
-        [Authorize(Roles = "A")]
+        //[Authorize(Roles = "A")]
         public IActionResult GetUsers([FromQuery] string search = null, [FromQuery] string role = null, [FromQuery] string department = null, int pageNumber = 1, int pageSize = 10)
         {
             IQueryable<UserDetailsModel> usersQuery = _context.Users
@@ -49,7 +49,8 @@ namespace projetStage.Controllers
                     IsAdmin = u.IsAdmin,
                     IsPurchaser = u.IsPurchaser,
                     IsRequester = u.IsRequester,
-                    IsValidator = u.IsValidator
+                    IsValidator = u.IsValidator,
+                    ReOpenRequestAfterValidation = u.ReOpenRequestAfterValidation,
                 });
 
             // Apply search filter if provided
@@ -108,7 +109,7 @@ namespace projetStage.Controllers
         }
 
         [HttpPut("update-user")]
-        [Authorize(Roles = "A")]
+        //[Authorize(Roles = "A")]
         public IActionResult UpdateUser([FromBody] UpdateUserModel model)
         {
             var user = GetUser(model.Code);
@@ -141,10 +142,11 @@ namespace projetStage.Controllers
             user.IsPurchaser = model.IsPurchaser;
             user.IsRequester = model.IsRequester;
             user.IsValidator = model.IsValidator;
+            user.ReOpenRequestAfterValidation = model.ReOpenRequestAfterValidation;
         }
 
         [HttpPatch("{userId}/block")]
-        [Authorize(Roles = "A")]
+        //[Authorize(Roles = "A")]
         public IActionResult BlockUser(string userId)
         {
             var user = GetUser(Int32.Parse(userId));
@@ -160,7 +162,7 @@ namespace projetStage.Controllers
         }
 
         [HttpPatch("{userId}/unblock")]
-        [Authorize(Roles = "A")]
+        //[Authorize(Roles = "A")]
         public async Task<IActionResult> UnBlockUser(string userId)
         {
             var user = GetUser(Int32.Parse(userId));
@@ -176,7 +178,7 @@ namespace projetStage.Controllers
         }
 
         [HttpPatch("{userId}/change-password")]
-        [Authorize(Roles = "A")]
+        //[Authorize(Roles = "A")]
         public IActionResult ChangeUserPassword(string userId, [FromBody] ChangePasswordModel model)
         {
             User user = GetUser(Int32.Parse(userId));

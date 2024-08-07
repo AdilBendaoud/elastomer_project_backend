@@ -33,7 +33,7 @@ namespace projetStage.Controllers
             return _context.Users.Any(u => u.Code == code);
         }
 
-        private void CreateUser(RegisterUserModel model, bool isAdmin, bool isRequester, bool isPurchaser, bool isValidator)
+        private void CreateUser(RegisterUserModel model, bool isAdmin, bool isRequester, bool isPurchaser, bool isValidator, bool reOpenAfterValidation)
         {
             if (CodeExists(model.Code))
             {
@@ -59,7 +59,8 @@ namespace projetStage.Controllers
                 IsAdmin = isAdmin,
                 IsPurchaser = isPurchaser,
                 IsRequester = isRequester,
-                IsValidator = isValidator
+                IsValidator = isValidator,
+                ReOpenRequestAfterValidation = reOpenAfterValidation
             };
 
             _context.Users.Add(user);
@@ -74,7 +75,7 @@ namespace projetStage.Controllers
         {
             try
             {
-                CreateUser(model, true, true, false, false);
+                CreateUser(model, true, true, false, false, false);
                 return Ok("Admin registered successfully.");
             }
             catch (Exception ex)
@@ -84,12 +85,12 @@ namespace projetStage.Controllers
         }
 
         [HttpPost("register/acheteur")]
-        [Authorize(Roles = "A")]
+        //[Authorize(Roles = "A")]
         public IActionResult RegisterAcheteur([FromBody] RegisterUserModel model)
         {
             try
             {
-                CreateUser(model, false, true, true, false);
+                CreateUser(model, false, true, true, false, model.ReOpenAfterValidation);
                 return Ok("Purchaser registered successfully.");
             }
             catch (Exception ex)
@@ -99,12 +100,12 @@ namespace projetStage.Controllers
         }
 
         [HttpPost("register/demandeur")]
-        [Authorize(Roles = "A")]
+        //[Authorize(Roles = "A")]
         public IActionResult RegisterDemandeur([FromBody] RegisterUserModel model)
         {
             try
             {
-                CreateUser(model, false, true, false, false);
+                CreateUser(model, false, true, false, false, false);
                 return Ok("Requester registered successfully.");
             }
             catch (Exception ex)
@@ -114,12 +115,12 @@ namespace projetStage.Controllers
         }
 
         [HttpPost("register/validateur")]
-        [Authorize(Roles = "A")]
+        //[Authorize(Roles = "A")]
         public IActionResult RegisterValidateur([FromBody] RegisterUserModel model)
         {
             try
             {
-                CreateUser(model, false, false, false, true);
+                CreateUser(model, false, false, false, true, false);
                 return Ok("Validator registered successfully.");
             }
             catch (Exception ex)
@@ -155,7 +156,8 @@ namespace projetStage.Controllers
                         user.Departement,
                         user.NeedsPasswordChange,
                         user.IsActive,
-                        Roles = roles
+                        Roles = roles,
+                        user.ReOpenRequestAfterValidation
                     }
                 });
             }

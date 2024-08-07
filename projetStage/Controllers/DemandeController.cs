@@ -4,9 +4,12 @@ using Microsoft.EntityFrameworkCore;
 using projetStage.Data;
 using projetStage.DTO;
 using projetStage.DTO.demandes;
+using projetStage.Helper;
 using projetStage.Models;
+using projetStage.Services;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
@@ -16,10 +19,12 @@ using System.Xml.Linq;
 public class DemandeController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IEmailService _emailService;
 
-    public DemandeController(AppDbContext context)
+    public DemandeController(AppDbContext context, IEmailService emailService)
     {
         _context = context;
+        _emailService = emailService;
     }
 
     private async Task LogDemandeHistory(int code, int demandeId, string changeDetails)
@@ -28,7 +33,7 @@ public class DemandeController : ControllerBase
         var history = new DemandeHistory
         {
             DemandeId = demandeId,
-            DateChanged = DateTime.UtcNow,
+            DateChanged = DateTime.UtcNow.AddHours(1),
             UserCode = user.Code,
             Details = changeDetails
         };
@@ -116,33 +121,38 @@ public class DemandeController : ControllerBase
 
 
     [HttpGet("{demandeCode}/articles")]
-    public async Task<IActionResult> GetArticle(string demandeCode)
+    public async Task<IActionResult> GetArticles(string demandeCode)
     {
-        var demande =  await _context.Demandes.FirstAsync(d => d.Code == demandeCode);
+        var demande = await _context.Demandes
+            .Include(d => d.DemandeArticles)
+            .FirstOrDefaultAsync(d => d.Code == demandeCode);
+
         if (demande == null)
         {
-            return NotFound();
+            return NotFound("Demande not found.");
         }
 
-        var articles = await _context.DemandeArticles
+        var articles = demande.DemandeArticles
             .Select(da => new
             {
                 da.Id,
-                da.Name,
-                da.Description,
+                Name = da.Name,
+                Description = da.Description,
                 Quantity = da.Qtt,
-                da.FamilleDeProduit,
-                da.Destination,
-                purchaseOrder = da.BonCommande
+                FamilleDeProduit = da.FamilleDeProduit,
+                Destination = da.Destination,
+                PurchaseOrder = da.BonCommande
             })
-            .ToListAsync();
+            .ToList();
 
-        if (articles == null)
+        if (articles == null || !articles.Any())
         {
-            return NotFound();
+            return NotFound("No articles found.");
         }
+
         return Ok(articles);
     }
+
 
     [HttpPut("{demandeCode}/update-articles")]
     public async Task<IActionResult> UpdateDemandeArticles(string demandeCode, [FromBody] UpdateArticlesModel model)
@@ -179,7 +189,7 @@ public class DemandeController : ControllerBase
                     Description = article.Description,
                     Destination = article.Destination,
                     FamilleDeProduit = article.FamilleDeProduit,
-                    CreatedAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow.AddHours(1),
                     Qtt = article.Quantity,
                     Status = "Created"
                 };
@@ -361,7 +371,7 @@ public class DemandeController : ControllerBase
             Code = model.Code,
             DemandeurId = model.DemandeurId,
             Status = DemandeStatus.Created,
-            OpenedAt = DateTime.UtcNow,
+            OpenedAt = DateTime.UtcNow.AddHours(1),
             IsValidateurCFOValidated = false,
             IsValidateurCOOValidated = false,
             IsValidateurCFORejected = false,
@@ -375,7 +385,7 @@ public class DemandeController : ControllerBase
             var demandeArticle = new DemandeArticle
             {
                 DemandeId = demande.Id,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow.AddHours(1),
                 Qtt = article.Quantity,
                 Destination = article.Destination,
                 FamilleDeProduit = article.FamilleDeProduit,
@@ -406,6 +416,7 @@ public class DemandeController : ControllerBase
                     {
                         s.Supplier.Id,
                         s.Supplier.Nom,
+                        s.isSelectedForValidation,
                         Offer = _context.DevisItems.Where(o => o.DemandeArticle.Demande.Code == demandeCode && o.FournisseurId == s.SupplierId)
                         .ToArray()
                     })
@@ -451,23 +462,22 @@ public class DemandeController : ControllerBase
         return Ok(supplierWithOffers);
     }
 
-
     [HttpPut("{requestCode}/validate/{userCode}")]
     public async Task<IActionResult> ValidateDemande(string requestCode, int userCode)
     {
-        var demande = await _context.Demandes.FirstAsync(d=> d.Code == requestCode);
+        var demande = await _context.Demandes.Include(d=> d.DemandeArticles).FirstAsync(d => d.Code == requestCode);
         if (demande == null)
         {
             return NotFound();
         }
 
-        var validator = await _context.Users.FirstAsync(u=> u.Code == userCode);
+        var validator = await _context.Users.FirstAsync(u => u.Code == userCode);
 
         if (validator.Departement == "CFO")
         {
             demande.IsValidateurCFOValidated = true;
             demande.IsValidateurCFORejected = false;
-            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
+            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow.AddHours(1);
             demande.ValidateurCFO = validator;
             demande.Status = DemandeStatus.CFOValidated;
         }
@@ -475,7 +485,7 @@ public class DemandeController : ControllerBase
         {
             demande.IsValidateurCOOValidated = true;
             demande.IsValidateurCOORejected = false;
-            demande.ValidatedOrRejectedByCOOAt = DateTime.UtcNow;
+            demande.ValidatedOrRejectedByCOOAt = DateTime.UtcNow.AddHours(1);
             demande.ValidateurCOO = validator;
             demande.Status = DemandeStatus.COOValidated;
         }
@@ -493,6 +503,30 @@ public class DemandeController : ControllerBase
         await _context.SaveChangesAsync();
 
         await LogDemandeHistory(validator.Code, demande.Id, $"Validated by user {validator.FirstName} {validator.LastName}");
+
+        var supplierRequests = _context.SupplierRequests
+            .Where(sr => sr.DemandeId == demande.Id)
+            .Include(sr => sr.Supplier)
+            .ToList();
+        var suppliers = supplierRequests.Select(sr => sr.Supplier).Distinct().ToList();
+
+        // Fetch devis items for these suppliers specific to the demande
+        var devisItems = await _context.DevisItems
+            .Where(di => di.DemandeArticle.DemandeId == demande.Id && supplierRequests.Select(sr => sr.SupplierId).Contains(di.FournisseurId))
+            .ToListAsync();
+
+        // Retrieve all purchasers' emails
+        var purchaserEmails = await _context.Users
+            .Where(u => u.IsPurchaser && u.IsActive)
+            .Select(u => u.Email)
+            .ToListAsync();
+
+        // Generate HTML table
+        var htmlTable = HTMLTableGenerator.GenerateHtmlTable(demande, devisItems, supplierRequests);
+        var subject = "New Request Has Been Validated";
+        var body = $"Request with code {requestCode} has been validated by {validator.FirstName} {validator.LastName}.<br><br>{htmlTable}";
+
+        await _emailService.SendEmailAsync(subject, body, purchaserEmails, validator.Email);
 
         return Ok();
     }
@@ -514,7 +548,7 @@ public class DemandeController : ControllerBase
             demande.IsValidateurCFORejected = true;
             demande.IsValidateurCFOValidated = false;
             demande.IsValidateurCOOValidated = false;
-            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
+            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow.AddHours(1);
             demande.ValidateurCFO = validator;
         }
         else if (validator.Departement == "COO")
@@ -523,7 +557,7 @@ public class DemandeController : ControllerBase
             demande.IsValidateurCOORejected = true;
             demande.IsValidateurCFOValidated = false;
             demande.IsValidateurCOOValidated = false;
-            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow;
+            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow.AddHours(1);
             demande.ValidateurCOO = validator;
         }
         else
@@ -660,6 +694,38 @@ public class DemandeController : ControllerBase
             return NotFound();
         }
         return Ok(demandeHisoty);
+    }
+
+    [HttpPut("{demandeCode}/set-wv/{userCode}")]
+    public async Task<IActionResult> SetWaitingValidation(string demandeCode, int userCode)
+    {
+        var demande = await _context.Demandes.FirstAsync(d => d.Code == demandeCode);
+        if (demande == null)
+        {
+            return NotFound();
+        }
+        demande.Status = DemandeStatus.WO;
+        demande.ValidateurCFOId = null;
+        demande.ValidateurCOOId = null;
+        demande.CommentCFO = null;
+        demande.CommentCOO = null;
+        demande.IsValidateurCOOValidated = false;
+        demande.IsValidateurCFOValidated = false;
+        demande.IsValidateurCOORejected = false;
+        demande.IsValidateurCFORejected = false;
+        demande.ValidatedOrRejectedByCFOAt = null;
+        demande.ValidatedOrRejectedByCOOAt = null;
+
+        var user = GetUser(userCode);
+
+        if (user == null)
+        {
+            return NotFound();
+        }
+
+        await LogDemandeHistory(user.Code, demande.Id, $"{user.FirstName} {user.LastName} reopened the request for validation");
+        await _context.SaveChangesAsync();
+        return Ok();
     }
 
     private User GetUser(int code)

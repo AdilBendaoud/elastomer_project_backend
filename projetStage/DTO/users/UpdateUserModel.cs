@@ -12,5 +12,6 @@
         public bool IsPurchaser { get; set; }
         public bool IsRequester { get; set; }
         public bool IsValidator { get; set; }
+        public bool ReOpenRequestAfterValidation { get; set; }
     }
 }

@@ -55,7 +55,7 @@ namespace projetStage.Controllers
         {
             var resetToken = _context.PasswordResetTokens.SingleOrDefault(t => t.Email == model.Email && t.Token == model.ResetCode);
 
-            if (resetToken == null || resetToken.Expiration < DateTime.UtcNow)
+            if (resetToken == null || resetToken.Expiration < DateTime.UtcNow.AddHours(1))
             {
                 return BadRequest("Invalid or expired reset code.");
             }
@@ -68,7 +68,7 @@ namespace projetStage.Controllers
         {
             var resetToken = _context.PasswordResetTokens.SingleOrDefault(t => t.Email == model.Email && t.Token == model.ResetCode);
 
-            if (resetToken == null || resetToken.Expiration < DateTime.UtcNow)
+            if (resetToken == null || resetToken.Expiration < DateTime.UtcNow.AddHours(1))
             {
                 return BadRequest("Invalid or expired reset code.");
             }

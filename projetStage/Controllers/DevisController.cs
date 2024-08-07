@@ -4,7 +4,10 @@ using Microsoft.EntityFrameworkCore;
 using projetStage.Data;
 using projetStage.DTO;
 using projetStage.DTO.demandes;
+using projetStage.Helper;
 using projetStage.Models;
+using projetStage.Services;
+using System.Threading.Channels;
 
 namespace projetStage.Controllers
 {
@@ -13,16 +16,18 @@ namespace projetStage.Controllers
     public class DevisController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IEmailService _emailService;
 
-        public DevisController(AppDbContext context)
+        public DevisController(AppDbContext context, IEmailService emailService)
         {
             _context = context;
+            _emailService = emailService;
         }
 
         [HttpPost("sendForValidation")]
         public async Task<IActionResult> SendForValidation([FromBody] RequestForValidation model) 
         {
-            var demande = await _context.Demandes.FirstAsync(d => d.Code == model.demandeCode);
+            var demande = await _context.Demandes.Include(d=> d.DemandeArticles).FirstAsync(d => d.Code == model.demandeCode);
             if (demande == null)
             {
                 return NotFound();
@@ -43,7 +48,32 @@ namespace projetStage.Controllers
 
             demande.Status = DemandeStatus.WV;
 
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
+
+            // fetch suppliers
+            var supplierRequests = await _context.SupplierRequests
+            .Where(sr => sr.DemandeId == demande.Id)
+            .Include(sr => sr.Supplier)
+            .ToListAsync();
+
+            var suppliers = supplierRequests.Select(sr => sr.Supplier).Distinct().ToList();
+
+            // Fetch devis items for these suppliers
+            var devisItems = await _context.DevisItems
+                .Where(di => di.DemandeArticle.DemandeId == demande.Id && suppliers.Select(s => s.Id).Contains(di.FournisseurId))
+                .ToListAsync();
+
+            // Send email to all validators
+            var validators = await _context.Users.Where(u => u.IsValidator).ToListAsync();
+            var emailAddresses = validators.Select(v => v.Email).ToList();
+            var emailSubject = "New Request Needs Validation";
+            var htmlTable = HTMLTableGenerator.GenerateHtmlTable(demande, devisItems, supplierRequests);
+            var emailBody = $"A new request with code {demande.Code} requires your validation. Please log in to the system to validate the request. <br><br>{htmlTable}";
+
+            foreach (var email in emailAddresses)
+            {
+                _emailService.SendEmail(email, emailSubject, emailBody);
+            }
             return Ok("Request sent for Validation");
         }
 
@@ -74,7 +104,6 @@ namespace projetStage.Controllers
                         {
                             DemandeArticleId = item.DemandeArticleId,
                             FournisseurId = supplier.Id,
-                            Quantity = item.Quantity,
                             UnitPrice = item.UnitPrice,
                             Devise = item.Devise,
                             Delay = item.Delay
@@ -84,9 +113,6 @@ namespace projetStage.Controllers
                     }
                     else
                     {
-                        existingDevisItem.DemandeArticleId = item.DemandeArticleId;
-                        existingDevisItem.FournisseurId = supplier.Id;
-                        existingDevisItem.Quantity = item.Quantity;
                         existingDevisItem.UnitPrice = item.UnitPrice;
                         existingDevisItem.Devise = item.Devise;
                         existingDevisItem.Delay = item.Delay;
@@ -109,7 +135,6 @@ namespace projetStage.Controllers
                     {
                         d.Id,
                         d.Delay,
-                        d.Quantity,
                         d.UnitPrice,
                         d.DemandeArticle
                     }
@@ -117,6 +142,15 @@ namespace projetStage.Controllers
                 .ToListAsync();
 
             return Ok(devisList);
+        }
+        
+        [HttpGet("time")]
+        public object GetTime()
+        {
+            return (new
+            {
+                DateTime.Now
+            });
         }
     }
 }

@@ -22,6 +22,7 @@ namespace projetStage.Models
         public bool IsPurchaser { get; set; }
         public bool IsRequester { get; set; }
         public bool IsValidator { get; set; }
+        public bool ReOpenRequestAfterValidation { get; set; }
 
         // Navigation properties
         public ICollection<Demande> Demandes { get; set; }

@@ -7,5 +7,6 @@
         public string LastName { get; set; }
         public string Email { get; set; }
         public string Departement { get; set; }
+        public bool ReOpenAfterValidation { get; set; }
     }
 }
