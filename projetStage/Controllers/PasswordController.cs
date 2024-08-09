@@ -27,7 +27,7 @@ namespace projetStage.Controllers
         }
 
         [HttpPost("request-password-reset")]
-        public IActionResult RequestPasswordReset([FromBody] PasswordResetRequestModel model)
+        public async Task<IActionResult> RequestPasswordReset([FromBody] PasswordResetRequestModel model)
         {
             var user = _context.Users.SingleOrDefault(u => u.Email == model.Email);
             if (user == null)
@@ -39,13 +39,13 @@ namespace projetStage.Controllers
             {
                 Email = model.Email,
                 Token = Guid.NewGuid().ToString(),
-                Expiration = DateTime.UtcNow.AddHours(1) // Token valid for 1 hour
+                Expiration = DateTime.Now // Token valid for 1 hour
             };
 
             _context.PasswordResetTokens.Add(resetToken);
             _context.SaveChanges();
 
-            _emailService.SendEmail(model.Email, "Password Reset Request", $"Your reset code is: {resetToken.Token}");
+            await _emailService.SendEmail(model.Email, "Password Reset Request", $"Your reset code is: {resetToken.Token}");
 
             return Ok("Password reset code has been sent to your email.");
         }
@@ -55,7 +55,7 @@ namespace projetStage.Controllers
         {
             var resetToken = _context.PasswordResetTokens.SingleOrDefault(t => t.Email == model.Email && t.Token == model.ResetCode);
 
-            if (resetToken == null || resetToken.Expiration < DateTime.UtcNow.AddHours(1))
+            if (resetToken == null || resetToken.Expiration < DateTime.Now)
             {
                 return BadRequest("Invalid or expired reset code.");
             }
@@ -68,7 +68,7 @@ namespace projetStage.Controllers
         {
             var resetToken = _context.PasswordResetTokens.SingleOrDefault(t => t.Email == model.Email && t.Token == model.ResetCode);
 
-            if (resetToken == null || resetToken.Expiration < DateTime.UtcNow.AddHours(1))
+            if (resetToken == null || resetToken.Expiration < DateTime.Now)
             {
                 return BadRequest("Invalid or expired reset code.");
             }

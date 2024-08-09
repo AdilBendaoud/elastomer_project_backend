@@ -24,11 +24,32 @@ namespace projetStage.Controllers
             _emailService = emailService;
         }
 
+        private async Task LogDemandeHistory(int userCode, int demandeId, string changeDetails)
+        {
+            var demande = await _context.Demandes.FirstAsync(d => d.Id == demandeId);
+            demande.LastModification = DateTime.Now;
+            var history = new DemandeHistory
+            {
+                DemandeId = demandeId,
+                DateChanged = DateTime.Now,
+                UserCode = userCode,
+                Details = changeDetails
+            };
+            _context.DemandeHistories.Add(history);
+            await _context.SaveChangesAsync();
+        }
+
         [HttpPost("sendForValidation")]
         public async Task<IActionResult> SendForValidation([FromBody] RequestForValidation model) 
         {
             var demande = await _context.Demandes.Include(d=> d.DemandeArticles).FirstAsync(d => d.Code == model.demandeCode);
             if (demande == null)
+            {
+                return NotFound();
+            }
+
+            var purchaser = await _context.Users.FirstAsync(a => a.Code == model.userCode);
+            if(purchaser == null)
             {
                 return NotFound();
             }
@@ -72,15 +93,16 @@ namespace projetStage.Controllers
 
             foreach (var email in emailAddresses)
             {
-                _emailService.SendEmail(email, emailSubject, emailBody);
+                await _emailService.SendEmail(email, emailSubject, emailBody);
             }
+            await LogDemandeHistory(model.userCode, demande.Id, $"Request sent to validation by {purchaser.FirstName} {purchaser.LastName}");
             return Ok("Request sent for Validation");
         }
 
         [HttpPost]
-        public async Task<IActionResult> AddDevis([FromBody] List<AddDevisModel> models)
+        public async Task<IActionResult> AddDevis([FromBody] CreateDeviseModel data)
         {
-            foreach (var model in models)
+            foreach (var model in data.DevisList)
             {
                 var supplier = await _context.Fournisseurs.FindAsync(model.SupplierId);
                 if (supplier == null)
@@ -108,7 +130,6 @@ namespace projetStage.Controllers
                             Devise = item.Devise,
                             Delay = item.Delay
                         };
-
                         _context.DevisItems.Add(devisItem);
                     }
                     else
@@ -120,6 +141,11 @@ namespace projetStage.Controllers
                     await _context.SaveChangesAsync();
                 }
             }
+            
+            var demande = await _context.Demandes.FirstAsync(d => d.Code == data.DemandeCode);
+            var user = await _context.Users.FirstAsync(u=> u.Code == data.UserCode);
+
+            await LogDemandeHistory(data.UserCode, demande.Id, $"Offer added/edited by {user.FirstName} {user.LastName}");
             return Ok("Devis added successfully.");
         }
 
@@ -142,15 +168,6 @@ namespace projetStage.Controllers
                 .ToListAsync();
 
             return Ok(devisList);
-        }
-        
-        [HttpGet("time")]
-        public object GetTime()
-        {
-            return (new
-            {
-                DateTime.Now
-            });
         }
     }
 }

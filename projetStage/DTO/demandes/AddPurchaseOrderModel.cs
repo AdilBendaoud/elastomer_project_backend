@@ -3,6 +3,6 @@
     public class AddPurchaseOrderModel
     {
         public int Id { get; set; }
-        public string PurchaseOrder { get; set; }
+        public string? PurchaseOrder { get; set; }
     }
 }

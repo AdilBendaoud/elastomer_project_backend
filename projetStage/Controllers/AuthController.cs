@@ -33,7 +33,7 @@ namespace projetStage.Controllers
             return _context.Users.Any(u => u.Code == code);
         }
 
-        private void CreateUser(RegisterUserModel model, bool isAdmin, bool isRequester, bool isPurchaser, bool isValidator, bool reOpenAfterValidation)
+        private async void CreateUser(RegisterUserModel model, bool isAdmin, bool isRequester, bool isPurchaser, bool isValidator, bool reOpenAfterValidation)
         {
             if (CodeExists(model.Code))
             {
@@ -66,7 +66,7 @@ namespace projetStage.Controllers
             _context.Users.Add(user);
             _context.SaveChanges();
 
-            _emailService.SendEmail(model.Email, "Account Created", $"Your temporary password is: {password}. Please log in and change your password.");
+            await _emailService.SendEmail(model.Email, "Account Created", $"Your temporary password is: {password}. Please log in and change your password.");
         }
 
         [HttpPost("register/admin")]

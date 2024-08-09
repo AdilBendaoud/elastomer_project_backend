@@ -16,6 +16,7 @@ namespace projetStage.Data
         public DbSet<Fournisseur> Fournisseurs { get; set; }
         public DbSet<DemandeHistory> DemandeHistories { get; set; }
         public DbSet<SupplierRequest> SupplierRequests { get; set; }
+        public DbSet<Currency> Currencies { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

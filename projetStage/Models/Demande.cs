@@ -20,6 +20,8 @@ namespace projetStage.Models
         public bool IsValidateurCFORejected { get; set; }
         public DateTime? ValidatedOrRejectedByCFOAt { get; set; }
 
+        public DateTime? LastModification { get; set; }
+
         public int? ValidateurCOOId { get; set; }
         public User ValidateurCOO { get; set; }
         public string? CommentCOO { get; set; }

@@ -51,12 +51,45 @@ namespace projetStage.Controllers
             return Ok(suppliers);
         }
 
+        [HttpGet("search")]
+        public async Task<IActionResult> SearchSuppliers([FromQuery] string query, [FromQuery] string requestCode)
+        {
+            if (string.IsNullOrEmpty(query))
+            {
+                return BadRequest("Query parameter cannot be empty");
+            }
+
+            // Get the DemandeId from the request code
+            var demande = await _context.Demandes
+                .FirstOrDefaultAsync(d => d.Code == requestCode);
+
+            if (demande == null)
+            {
+                return NotFound("Demande not found");
+            }
+
+            // Get the IDs of suppliers who have already received the request
+            var excludedSupplierIds = await _context.SupplierRequests
+                .Where(sr => sr.DemandeId == demande.Id)
+                .Select(sr => sr.SupplierId)
+                .ToListAsync();
+
+            // Filter suppliers by name and exclude the ones already sent the request
+            var suppliers = await _context.Fournisseurs
+                .Where(s => s.Nom.Contains(query) && !excludedSupplierIds.Contains(s.Id))
+                .ToListAsync();
+
+            return Ok(suppliers);
+        }
+
         private async Task LogDemandeHistory(int userCode, int demandeId, string changeDetails)
         {
+            var demande = await _context.Demandes.FirstAsync(d => d.Id == demandeId);
+            demande.LastModification = DateTime.Now;
             var history = new DemandeHistory
             {
                 DemandeId = demandeId,
-                DateChanged = DateTime.UtcNow.AddHours(1),
+                DateChanged = DateTime.Now,
                 UserCode = userCode,
                 Details = changeDetails
             };
@@ -103,10 +136,11 @@ namespace projetStage.Controllers
                 {
                     DemandeId = demande.Id,
                     SupplierId = supplier.Id,
-                    SentAt = DateTime.UtcNow.AddHours(1)
+                    SentAt = DateTime.Now
                 };
                 _context.SupplierRequests.Add(supplierRequest);
-                _emailService.SendEmail(purchaser.Email, supplier.Email, demande.Code, emailBody);
+                
+                await _emailService.SendEmail(purchaser.Email, supplier.Email, demande.Code, emailBody);
             }
 
             _emailService.SendEmail(purchaser.Email, demande.Code, emailBody);

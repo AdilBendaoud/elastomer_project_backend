@@ -17,7 +17,7 @@ namespace projetStage.Services
             UpdateSmtpClient();
         }
 
-        public void SendEmail(string to, string subject, string body)
+        public async Task SendEmail(string to, string subject, string body)
         {
             var mailMessage = new MailMessage
             {
@@ -28,10 +28,10 @@ namespace projetStage.Services
             };
 
             mailMessage.To.Add(to);
-            _smtpClient.Send(mailMessage);
+            await Task.Run(() => _smtpClient.Send(mailMessage));
         }
 
-        public void SendEmail(string from, string to, string subject, string body)
+        public async Task SendEmail(string from, string to, string subject, string body)
         {
             var mailMessage = new MailMessage
             {
@@ -42,7 +42,8 @@ namespace projetStage.Services
             };
 
             mailMessage.To.Add(to);
-            _smtpClient.Send(mailMessage);
+
+            await Task.Run(() => _smtpClient.Send(mailMessage));
         }
 
         public async Task SendEmailAsync(string subject, string body, List<string> toEmails, string ccEmail)

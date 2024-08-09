@@ -1,6 +1,6 @@
 ﻿namespace projetStage.DTO.demandes
 {
-    public class AddDevisModel
+    public class DevisModel
     {
         public int SupplierId { get; set; }
         public List<DevisItemModel> Items { get; set; }

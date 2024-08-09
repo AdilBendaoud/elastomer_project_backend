@@ -27,14 +27,15 @@ public class DemandeController : ControllerBase
         _emailService = emailService;
     }
 
-    private async Task LogDemandeHistory(int code, int demandeId, string changeDetails)
+    private async Task LogDemandeHistory(int userCode, int demandeId, string changeDetails)
     {
-        var user = GetUser(code);
+        var demande = await _context.Demandes.FirstAsync(d => d.Id == demandeId);
+        demande.LastModification = DateTime.Now;
         var history = new DemandeHistory
         {
             DemandeId = demandeId,
-            DateChanged = DateTime.UtcNow.AddHours(1),
-            UserCode = user.Code,
+            DateChanged = DateTime.Now,
+            UserCode = userCode,
             Details = changeDetails
         };
         _context.DemandeHistories.Add(history);
@@ -60,9 +61,22 @@ public class DemandeController : ControllerBase
 
         var demandes = _context.Demandes.Include(d => d.Demandeur).AsQueryable();
 
-        if (user.IsRequester && !user.IsPurchaser)
+        if (user.IsRequester && !user.IsPurchaser && !user.IsAdmin)
         {
-            demandes = demandes.Where(d => d.Demandeur.Code == userCode);
+            demandes = demandes.Where(d => d.Code.Contains(user.Departement));
+        }
+
+        if (user.IsValidator)
+        {
+            if(user.Departement == "CFO")
+            {
+                demandes = demandes.Where(d => d.Status == DemandeStatus.WV || d.Status == DemandeStatus.COOValidated);
+            }
+
+            if (user.Departement == "COO")
+            {
+                demandes = demandes.Where(d => d.Status == DemandeStatus.WV || d.Status == DemandeStatus.CFOValidated);
+            }
         }
 
         if (!string.IsNullOrEmpty(search))
@@ -106,9 +120,26 @@ public class DemandeController : ControllerBase
         var paginatedDemandes = await demandes
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
+            .Select(d => new DemandeDto
+            {
+                Id = d.Id,
+                Code = d.Code,
+                Status = d.Status,
+                OpenedAt = d.OpenedAt,
+                LastModification = d.LastModification,
+                Demandeur = new DemandeurDto
+                {
+                    Id = d.Demandeur.Id,
+                    Code = d.Demandeur.Code,
+                    FirstName = d.Demandeur.FirstName,
+                    LastName = d.Demandeur.LastName,
+                    Email = d.Demandeur.Email,
+                    Departement = d.Demandeur.Departement
+                }
+            }).OrderByDescending(d=> d.LastModification)
             .ToListAsync();
 
-        var response = new PaginatedResponse<Demande>
+        var response = new PaginatedResponse<DemandeDto>
         {
             TotalCount = totalDemandes,
             PageSize = pageSize,
@@ -189,7 +220,7 @@ public class DemandeController : ControllerBase
                     Description = article.Description,
                     Destination = article.Destination,
                     FamilleDeProduit = article.FamilleDeProduit,
-                    CreatedAt = DateTime.UtcNow.AddHours(1),
+                    CreatedAt = DateTime.Now,
                     Qtt = article.Quantity,
                     Status = "Created"
                 };
@@ -215,22 +246,59 @@ public class DemandeController : ControllerBase
         return Ok("Articles updated successfully.");
     }
 
-    [HttpPut("{demandeCode}/add-purchase-order")]
-    public async Task<IActionResult> AddPurchaseOrder(string demandeCode, [FromBody] List<AddPurchaseOrderModel> model)
+    [HttpPut("{demandeCode}/add-purchase-order/{userCode}")]
+    public async Task<IActionResult> AddPurchaseOrder(int userCode, string demandeCode, [FromBody] List<AddPurchaseOrderModel> model)
     {
         var demande = await _context.Demandes.FirstOrDefaultAsync(d => d.Code == demandeCode);
-        if(demande == null)
+        if (demande == null)
         {
             return NotFound();
         }
 
-        foreach (var article in model)
+        var user = GetUser(userCode);
+
+        // Get the last non-empty PO from the list
+        var lastNonEmptyPO = model
+            .Where(a => a.PurchaseOrder != null)
+            .Select(a => a.PurchaseOrder)
+            .LastOrDefault();
+
+        if (string.IsNullOrEmpty(lastNonEmptyPO))
         {
-            var demandeArticle = await _context.DemandeArticles.FindAsync(article.Id);
-            demandeArticle.BonCommande = article.PurchaseOrder;
+            return BadRequest("No valid purchase order found.");
         }
 
-        _context.SaveChanges();
+        // Update articles with specified POs
+        var articleIdsWithPO = model
+            .Where(a => a.PurchaseOrder != null)
+            .Select(a => a.Id)
+            .ToHashSet();
+
+        var articlesWithPO = await _context.DemandeArticles
+            .Where(da => articleIdsWithPO.Contains(da.Id))
+            .ToListAsync();
+
+        foreach (var article in model.Where(a => a.PurchaseOrder != null))
+        {
+            var demandeArticle = articlesWithPO.FirstOrDefault(da => da.Id == article.Id);
+            if (demandeArticle != null)
+            {
+                demandeArticle.BonCommande = article.PurchaseOrder;
+            }
+        }
+
+        // Apply the last non-empty PO to the remaining articles with an empty PO
+
+        var articlesWithoutPO = await _context.DemandeArticles
+            .Where(da => !articleIdsWithPO.Contains(da.Id) && da.BonCommande == null && da.DemandeId == demande.Id)
+            .ToListAsync();
+        
+        foreach (var article in articlesWithoutPO)
+        {
+            article.BonCommande = lastNonEmptyPO;
+        }
+        await LogDemandeHistory(user.Code, demande.Id, $"PO added by user {user.FirstName} {user.LastName}");
+        await _context.SaveChangesAsync();
         return Ok();
     }
 
@@ -245,96 +313,107 @@ public class DemandeController : ControllerBase
             case "article":
                 articleSuggestions = await _context.Articles
                     .Where(a => a.Nom.Contains(query))
-                    .Distinct()
                     .ToListAsync();
 
                 demandeArticleSuggestions = await _context.DemandeArticles
-                .Where(da => da.Name.Contains(query))
-                .Distinct()
-                .Select(da => new Article
-                {
-                    Id = da.Id,
-                    Nom = da.Name,
-                    Description = da.Description,
-                    FamilleDeProduit = da.FamilleDeProduit,
-                    Destination = da.Destination
-                })
-                .ToListAsync();
-                break;
+                    .Where(da => da.Name.Contains(query))
+                    .Select(da => new Article
+                    {
+                        Id = da.Id,
+                        Nom = da.Name,
+                        Description = da.Description,
+                        FamilleDeProduit = da.FamilleDeProduit,
+                        Destination = da.Destination
+                    })
+                    .ToListAsync();
+
+                var uniqueArticles = articleSuggestions
+                    .Concat(demandeArticleSuggestions)
+                    .GroupBy(a => new { a.Nom, a.Description })
+                    .Select(g => g.First())
+                    .ToList();
+
+                return Ok(uniqueArticles);
 
             case "description":
                 articleSuggestions = await _context.Articles
                     .Where(a => a.Description.Contains(query))
-                    .Distinct()
                     .ToListAsync();
 
                 demandeArticleSuggestions = await _context.DemandeArticles
-                 .Where(da => da.Description.Contains(query))
-                 .Distinct()
-                 .Select(da => new Article
-                 {
-                     Id = da.Id,
-                     Nom = da.Name,
-                     Description = da.Description,
-                     FamilleDeProduit = da.FamilleDeProduit,
-                     Destination = da.Destination
-                 })
-                 .ToListAsync();
-                break;
+                    .Where(da => da.Description.Contains(query))
+                    .Select(da => new Article
+                    {
+                        Id = da.Id,
+                        Nom = da.Name,
+                        Description = da.Description,
+                        FamilleDeProduit = da.FamilleDeProduit,
+                        Destination = da.Destination
+                    })
+                    .ToListAsync();
+
+                var uniqueDescriptions = articleSuggestions
+                    .Concat(demandeArticleSuggestions)
+                    .GroupBy(a => a.Description)
+                    .Select(g => g.First())
+                    .ToList();
+
+                return Ok(uniqueDescriptions);
 
             case "familleDeProduit":
                 articleSuggestions = await _context.Articles
                     .Where(a => a.FamilleDeProduit.Contains(query))
-                    .Distinct()
                     .ToListAsync();
 
                 demandeArticleSuggestions = await _context.DemandeArticles
-                .Where(da => da.FamilleDeProduit.Contains(query))
-                .Distinct()
-                .Select(da => new Article
-                {
-                    Id = da.Id,
-                    Nom = da.Name,
-                    Description = da.Description,
-                    FamilleDeProduit = da.FamilleDeProduit,
-                    Destination = da.Destination
-                })
-                .ToListAsync();
-                break;
+                    .Where(da => da.FamilleDeProduit.Contains(query))
+                    .Select(da => new Article
+                    {
+                        Id = da.Id,
+                        Nom = da.Name,
+                        Description = da.Description,
+                        FamilleDeProduit = da.FamilleDeProduit,
+                        Destination = da.Destination
+                    })
+                    .ToListAsync();
+
+                var uniqueFamilles = articleSuggestions
+                    .Concat(demandeArticleSuggestions)
+                    .GroupBy(a => a.FamilleDeProduit)
+                    .Select(g => g.First())
+                    .ToList();
+
+                return Ok(uniqueFamilles);
 
             case "destination":
                 articleSuggestions = await _context.Articles
                     .Where(a => a.Destination.Contains(query))
-                    .Distinct()
                     .ToListAsync();
 
                 demandeArticleSuggestions = await _context.DemandeArticles
-                .Where(da => da.Destination.Contains(query))
-                .Distinct()
-                .Select(da => new Article
-                {
-                    Id = da.Id,
-                    Nom = da.Name,
-                    Description = da.Description,
-                    FamilleDeProduit = da.FamilleDeProduit,
-                    Destination = da.Destination
-                })
-                .ToListAsync();
-                break;
+                    .Where(da => da.Destination.Contains(query))
+                    .Select(da => new Article
+                    {
+                        Id = da.Id,
+                        Nom = da.Name,
+                        Description = da.Description,
+                        FamilleDeProduit = da.FamilleDeProduit,
+                        Destination = da.Destination
+                    })
+                    .ToListAsync();
+
+                var uniqueDestinations = articleSuggestions
+                    .Concat(demandeArticleSuggestions)
+                    .GroupBy(a => a.Destination)
+                    .Select(g => g.First())
+                    .ToList();
+
+                return Ok(uniqueDestinations);
 
             default:
                 return BadRequest("Invalid type parameter.");
         }
-
-        var combinedSuggestions = articleSuggestions
-        .Concat(demandeArticleSuggestions)
-        .GroupBy(a => new { a.Nom, a.Description, a.FamilleDeProduit, a.Destination })
-        .Select(g => g.First())
-        .ToList();
-
-        return Ok(combinedSuggestions);
     }
-
 
     [HttpGet("generate-code/{demandeurCode}")]
     public async Task<IActionResult> GenerateDemandeCode(int demandeurCode)
@@ -350,7 +429,7 @@ public class DemandeController : ControllerBase
         string yearCode = currentYear.ToString("D2");
 
         int count = await _context.Demandes
-                              .Where(d => d.Demandeur.Departement == departmentCode && d.OpenedAt.Value.Year % 100 == currentYear)
+                              .Where(d => d.Code.Contains(departmentCode) && d.OpenedAt.Value.Year % 100 == currentYear)
                               .CountAsync();
         string newCode = $"DA{departmentCode}{yearCode}{(count + 1):D4}";
         return Ok(new { Code = newCode });
@@ -371,7 +450,7 @@ public class DemandeController : ControllerBase
             Code = model.Code,
             DemandeurId = model.DemandeurId,
             Status = DemandeStatus.Created,
-            OpenedAt = DateTime.UtcNow.AddHours(1),
+            OpenedAt = DateTime.Now,
             IsValidateurCFOValidated = false,
             IsValidateurCOOValidated = false,
             IsValidateurCFORejected = false,
@@ -385,11 +464,12 @@ public class DemandeController : ControllerBase
             var demandeArticle = new DemandeArticle
             {
                 DemandeId = demande.Id,
-                CreatedAt = DateTime.UtcNow.AddHours(1),
+                CreatedAt = DateTime.Now,
                 Qtt = article.Quantity,
                 Destination = article.Destination,
                 FamilleDeProduit = article.FamilleDeProduit,
                 Name = article.Name,
+                BonCommande = null,
                 Description = article.Description,
                 Status = "Created",
             };
@@ -477,7 +557,7 @@ public class DemandeController : ControllerBase
         {
             demande.IsValidateurCFOValidated = true;
             demande.IsValidateurCFORejected = false;
-            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow.AddHours(1);
+            demande.ValidatedOrRejectedByCFOAt = DateTime.Now;
             demande.ValidateurCFO = validator;
             demande.Status = DemandeStatus.CFOValidated;
         }
@@ -485,7 +565,7 @@ public class DemandeController : ControllerBase
         {
             demande.IsValidateurCOOValidated = true;
             demande.IsValidateurCOORejected = false;
-            demande.ValidatedOrRejectedByCOOAt = DateTime.UtcNow.AddHours(1);
+            demande.ValidatedOrRejectedByCOOAt = DateTime.Now;
             demande.ValidateurCOO = validator;
             demande.Status = DemandeStatus.COOValidated;
         }
@@ -548,7 +628,7 @@ public class DemandeController : ControllerBase
             demande.IsValidateurCFORejected = true;
             demande.IsValidateurCFOValidated = false;
             demande.IsValidateurCOOValidated = false;
-            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow.AddHours(1);
+            demande.ValidatedOrRejectedByCFOAt = DateTime.Now;
             demande.ValidateurCFO = validator;
         }
         else if (validator.Departement == "COO")
@@ -557,7 +637,7 @@ public class DemandeController : ControllerBase
             demande.IsValidateurCOORejected = true;
             demande.IsValidateurCFOValidated = false;
             demande.IsValidateurCOOValidated = false;
-            demande.ValidatedOrRejectedByCFOAt = DateTime.UtcNow.AddHours(1);
+            demande.ValidatedOrRejectedByCFOAt = DateTime.Now;
             demande.ValidateurCOO = validator;
         }
         else
@@ -576,7 +656,7 @@ public class DemandeController : ControllerBase
     [HttpPut("{demandeCode}/cancel")]
     public async Task<IActionResult> CancelDemande(string demandeCode, [FromBody] CancelDemandeModel model)
     {
-        var demande = await _context.Demandes.FirstAsync(d => d.Code == demandeCode);
+        var demande = await _context.Demandes.Include(d=> d.Demandeur).FirstAsync(d => d.Code == demandeCode);
         if (demande == null)
         {
             return NotFound();
@@ -604,21 +684,17 @@ public class DemandeController : ControllerBase
             }
         }
 
-        if (user.IsPurchaser)
+        if (user.IsPurchaser && (demande.Status == DemandeStatus.WO || demande.Demandeur.IsPurchaser))
         {
-            if (demande.Status == DemandeStatus.WO)
-            {
                 demande.Status = DemandeStatus.Cancel;
                 await _context.SaveChangesAsync();
                 await LogDemandeHistory(user.Code, demande.Id, $"Cancelled by user {user.FirstName} {user.LastName}");
                 return Ok("Request Cancelled");
-            }
-            else
-            {
-                return BadRequest("Request can't be cancelled");
-            }
         }
-        return NoContent();
+        else
+        {
+            return BadRequest("Request can't be cancelled");
+        }
     }
 
     [HttpPut("{demandeCode}/done/{userCode}")]
@@ -727,7 +803,7 @@ public class DemandeController : ControllerBase
         await _context.SaveChangesAsync();
         return Ok();
     }
-
+    
     private User GetUser(int code)
     {
         var user = _context.Users.SingleOrDefault(u => u.Code == code);
