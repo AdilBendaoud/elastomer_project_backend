@@ -11,17 +11,14 @@ var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(name: MyAllowSpecificOrigins,
-                      policy =>
-                      {
-                          policy.WithOrigins("http://localhost:3000").AllowAnyHeader().AllowAnyMethod();
-                      });
+    options.AddPolicy(
+        name: MyAllowSpecificOrigins,
+        policy =>{policy.WithOrigins("http://localhost:3000").AllowAnyHeader().AllowAnyMethod();}
+    );
 });
 
 // Add services to the container.
-builder.Services.AddControllers()
-    .AddNewtonsoftJson(options =>
-    {
+builder.Services.AddControllers().AddNewtonsoftJson(options =>{
         options.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
     });
 
@@ -31,7 +28,6 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

@@ -41,6 +41,13 @@ namespace projetStage.Controllers
             return Ok("Email settings updated successfully.");
         }
 
+        [HttpPost("smtp-test")]
+        public async Task<IActionResult> SmtpTest([FromBody] string email)
+        {
+            await _emailService.SendEmail(email, "Email test", "Hello this email for SMTP test");
+            return Ok();
+        }
+
         [HttpGet("get-email-settings")]
         //[Authorize(Roles = "A")]
         public IActionResult GetEmailSettings()

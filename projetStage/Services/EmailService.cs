@@ -28,7 +28,7 @@ namespace projetStage.Services
             };
 
             mailMessage.To.Add(to);
-            await Task.Run(() => _smtpClient.Send(mailMessage));
+            await _smtpClient.SendMailAsync(mailMessage);
         }
 
         public async Task SendEmail(string from, string to, string subject, string body)
@@ -42,8 +42,7 @@ namespace projetStage.Services
             };
 
             mailMessage.To.Add(to);
-
-            await Task.Run(() => _smtpClient.Send(mailMessage));
+            await _smtpClient.SendMailAsync(mailMessage);
         }
 
         public async Task SendEmailAsync(string subject, string body, List<string> toEmails, string ccEmail)

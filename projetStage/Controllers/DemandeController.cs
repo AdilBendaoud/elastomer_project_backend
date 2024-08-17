@@ -12,7 +12,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
-
 // Controllers/DemandeController.cs
 [Route("api/[controller]")]
 [ApiController]
@@ -150,7 +149,6 @@ public class DemandeController : ControllerBase
         return Ok(response);
     }
 
-
     [HttpGet("{demandeCode}/articles")]
     public async Task<IActionResult> GetArticles(string demandeCode)
     {
@@ -183,7 +181,6 @@ public class DemandeController : ControllerBase
 
         return Ok(articles);
     }
-
 
     [HttpPut("{demandeCode}/update-articles")]
     public async Task<IActionResult> UpdateDemandeArticles(string demandeCode, [FromBody] UpdateArticlesModel model)
@@ -221,8 +218,7 @@ public class DemandeController : ControllerBase
                     Destination = article.Destination,
                     FamilleDeProduit = article.FamilleDeProduit,
                     CreatedAt = DateTime.Now,
-                    Qtt = article.Quantity,
-                    Status = "Created"
+                    Qtt = article.Quantity
                 };
                 await _context.DemandeArticles.AddAsync(demandeArticle);
             }
@@ -257,48 +253,36 @@ public class DemandeController : ControllerBase
 
         var user = GetUser(userCode);
 
-        // Get the last non-empty PO from the list
-        var lastNonEmptyPO = model
-            .Where(a => a.PurchaseOrder != null)
-            .Select(a => a.PurchaseOrder)
-            .LastOrDefault();
-
-        if (string.IsNullOrEmpty(lastNonEmptyPO))
-        {
-            return BadRequest("No valid purchase order found.");
-        }
-
-        // Update articles with specified POs
-        var articleIdsWithPO = model
-            .Where(a => a.PurchaseOrder != null)
-            .Select(a => a.Id)
-            .ToHashSet();
-
-        var articlesWithPO = await _context.DemandeArticles
-            .Where(da => articleIdsWithPO.Contains(da.Id))
+        // Get all articles related to the demande
+        var allArticles = await _context.DemandeArticles
+            .Where(da => da.DemandeId == demande.Id && da.Name != "Delivery Fee")
+            .OrderBy(da => da.Id) // Ensure order
             .ToListAsync();
 
-        foreach (var article in model.Where(a => a.PurchaseOrder != null))
+        // Iterate through the articles and apply the PO logic
+        string lastAppliedPO = null;
+
+        foreach (var article in allArticles)
         {
-            var demandeArticle = articlesWithPO.FirstOrDefault(da => da.Id == article.Id);
-            if (demandeArticle != null)
+            // Find if there's a specific PO provided in the input model
+            var inputArticle = model.FirstOrDefault(a => a.Id == article.Id);
+
+            if (inputArticle != null && !string.IsNullOrEmpty(inputArticle.PurchaseOrder))
             {
-                demandeArticle.BonCommande = article.PurchaseOrder;
+                // If the input has a PO, apply it
+                article.BonCommande = inputArticle.PurchaseOrder;
+                lastAppliedPO = inputArticle.PurchaseOrder; // Update the last applied PO
+            }
+            else if (string.IsNullOrEmpty(article.BonCommande))
+            {
+                // If the article doesn't have a PO and no specific PO was provided, apply the last applied PO
+                article.BonCommande = lastAppliedPO;
             }
         }
 
-        // Apply the last non-empty PO to the remaining articles with an empty PO
-
-        var articlesWithoutPO = await _context.DemandeArticles
-            .Where(da => !articleIdsWithPO.Contains(da.Id) && da.BonCommande == null && da.DemandeId == demande.Id)
-            .ToListAsync();
-        
-        foreach (var article in articlesWithoutPO)
-        {
-            article.BonCommande = lastNonEmptyPO;
-        }
         await LogDemandeHistory(user.Code, demande.Id, $"PO added by user {user.FirstName} {user.LastName}");
         await _context.SaveChangesAsync();
+
         return Ok();
     }
 
@@ -459,6 +443,7 @@ public class DemandeController : ControllerBase
         _context.Demandes.Add(demande);
         await _context.SaveChangesAsync();
 
+        // Add each article to the request
         foreach (var article in model.Articles)
         {
             var demandeArticle = new DemandeArticle
@@ -470,14 +455,29 @@ public class DemandeController : ControllerBase
                 FamilleDeProduit = article.FamilleDeProduit,
                 Name = article.Name,
                 BonCommande = null,
-                Description = article.Description,
-                Status = "Created",
+                Description = article.Description
             };
             _context.DemandeArticles.Add(demandeArticle);
-            await _context.SaveChangesAsync();
         }
 
+        // Add the delivery price as a separate row
+        var deliveryArticle = new DemandeArticle
+        {
+            DemandeId = demande.Id,
+            CreatedAt = DateTime.Now,
+            Qtt = 1,
+            Name = "Delivery Fee",
+            Description = "Delivery fee for the request",
+            FamilleDeProduit = "Service",
+            Destination = "N/A",
+            BonCommande = null
+        };
+        _context.DemandeArticles.Add(deliveryArticle);
+
+        await _context.SaveChangesAsync();
+
         await LogDemandeHistory(model.DemandeurCode, demande.Id, $"Initial creation of request by {demandeur.FirstName} {demandeur.LastName}");
+
         return Ok("Request created");
     }
 
@@ -602,7 +602,13 @@ public class DemandeController : ControllerBase
             .ToListAsync();
 
         // Generate HTML table
-        var htmlTable = HTMLTableGenerator.GenerateHtmlTable(demande, devisItems, supplierRequests);
+        var currencies = _context.Currencies.ToList();
+        var exchangeRates = new Dictionary<string, float> {
+                { "EUR", currencies.First(c=> c.CurrencyCode == "EUR").PriceInEur },
+                { "USD", currencies.First(c=> c.CurrencyCode == "USD").PriceInEur },
+                { "MAD", currencies.First(c=> c.CurrencyCode == "MAD").PriceInEur },
+                { "GBP", currencies.First(c=> c.CurrencyCode == "GBP").PriceInEur }};
+        var htmlTable = HTMLTableGenerator.GenerateHtmlTable(demande, devisItems, supplierRequests, exchangeRates);
         var subject = "New Request Has Been Validated";
         var body = $"Request with code {requestCode} has been validated by {validator.FirstName} {validator.LastName}.<br><br>{htmlTable}";
 
@@ -759,7 +765,6 @@ public class DemandeController : ControllerBase
         return BadRequest();
     }
 
-
     [HttpGet("{demandeCode}/history")]
     public async Task<IActionResult> GetHistory(string demandeCode)
     {
@@ -803,7 +808,43 @@ public class DemandeController : ControllerBase
         await _context.SaveChangesAsync();
         return Ok();
     }
-    
+
+    [HttpGet("cheapest-offers")]
+    public async Task<IActionResult> GetCheapestOffers([FromQuery] string name, [FromQuery] string description)
+    {
+        if (string.IsNullOrEmpty(name) && string.IsNullOrEmpty(description))
+        {
+            return BadRequest("Name or description must be provided.");
+        }
+
+        // Fetch the matching articles
+        var matchingArticles = await _context.DemandeArticles
+            .Where(da => (string.IsNullOrEmpty(name) || da.Name.Contains(name)) &&
+                         (string.IsNullOrEmpty(description) || da.Description.Contains(description)))
+            .Select(da => da.Id)
+            .ToListAsync();
+
+        if (!matchingArticles.Any())
+        {
+            return NotFound("No matching articles found.");
+        }
+
+        // Fetch the cheapest offers for the matching articles
+        var cheapestOffers = await _context.DevisItems
+            .Where(di => matchingArticles.Contains(di.DemandeArticleId))
+            .OrderBy(di => di.UnitPrice)
+            .Take(10)
+            .Select(di => new
+            {
+                SupplierName = di.Fournisseur.Nom,
+                UnitPrice = di.UnitPrice,
+                Devise = di.Devise
+            })
+            .ToListAsync();
+
+        return Ok(cheapestOffers);
+    }
+
     private User GetUser(int code)
     {
         var user = _context.Users.SingleOrDefault(u => u.Code == code);

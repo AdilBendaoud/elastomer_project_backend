@@ -7,6 +7,7 @@ using projetStage.DTO.demandes;
 using projetStage.Models;
 using projetStage.Services;
 using System.Text;
+using System.Threading.Channels;
 
 namespace projetStage.Controllers
 {
@@ -98,7 +99,6 @@ namespace projetStage.Controllers
         }
 
         [HttpPost("send-to-suppliers")]
-        //[Authorize(Roles = "P")]
         public async Task<IActionResult> SendToSuppliers([FromBody] SendRequestToSuppliersModel model)
         {
             if (model == null || string.IsNullOrEmpty(model.RequestCode) || model.SupplierIds == null || !model.SupplierIds.Any())
@@ -118,32 +118,37 @@ namespace projetStage.Controllers
                 return BadRequest("Some suppliers not found.");
             }
 
-            var purchaser = await _context.Users.FirstAsync(a => a.Code == model.UserCode);
+            var purchaser = await _context.Users.FirstOrDefaultAsync(a => a.Code == model.UserCode);
             if (purchaser == null)
             {
                 return NotFound("Purchaser not found.");
             }
 
             var demandeArticles = await _context.DemandeArticles
-                .Where(da => da.DemandeId == demande.Id)
+                .Where(da => da.DemandeId == demande.Id && da.Name != "Delivery Fee")
                 .ToListAsync();
 
             var emailBody = BuildEmailBody(demandeArticles);
 
-            foreach (var supplier in suppliers)
-            {
-                var supplierRequest = new SupplierRequest
-                {
-                    DemandeId = demande.Id,
-                    SupplierId = supplier.Id,
-                    SentAt = DateTime.Now
-                };
-                _context.SupplierRequests.Add(supplierRequest);
-                
-                await _emailService.SendEmail(purchaser.Email, supplier.Email, demande.Code, emailBody);
-            }
+            //foreach (var supplier in suppliers)
+            //{
+            //    var previoudData = await _context.SupplierRequests.FirstOrDefaultAsync(s => s.DemandeId == demande.Id && s.SupplierId == supplier.Id);
+            //    if(previoudData == null)
+            //    {
+            //        var supplierRequest = new SupplierRequest
+            //        {
+            //            DemandeId = demande.Id,
+            //            SupplierId = supplier.Id,
+            //            SentAt = DateTime.Now
+            //        };
+            //        _context.SupplierRequests.Add(supplierRequest);
+            //    }
 
-            _emailService.SendEmail(purchaser.Email, demande.Code, emailBody);
+            //    // Enqueue the email sending as a background job
+            //    BackgroundJob.Enqueue(() => _emailService.SendEmail(purchaser.Email, supplier.Email, demande.Code, emailBody));
+            //}
+
+            await Task.Run(() => SendEmailToSuppliers(demande, purchaser, suppliers, emailBody));
 
             demande.AcheteurId = purchaser.Id;
             demande.Status = DemandeStatus.WO;
@@ -153,6 +158,31 @@ namespace projetStage.Controllers
 
             return Ok("Request sent to suppliers successfully.");
         }
+
+        private async Task SendEmailToSuppliers(Demande demande, User purchaser, List<Fournisseur>? suppliers, string? emailBody)
+        {
+            foreach (var supplier in suppliers)
+            {
+                var previousData = await _context.SupplierRequests.FirstOrDefaultAsync(s => s.DemandeId == demande.Id && s.SupplierId == supplier.Id);
+
+                if (previousData == null)
+                {
+                    var supplierRequest = new SupplierRequest
+                    {
+                        DemandeId = demande.Id,
+                        SupplierId = supplier.Id,
+                        SentAt = DateTime.Now
+                    };
+                    _context.SupplierRequests.Add(supplierRequest);
+                }
+
+                await _emailService.SendEmail(purchaser.Email, supplier.Email, demande.Code, emailBody);
+            }
+
+            await _emailService.SendEmail(purchaser.Email, demande.Code, emailBody);
+        }
+
+
         private string BuildEmailBody(List<DemandeArticle> demandeArticles)
         {
             var sb = new StringBuilder();

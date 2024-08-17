@@ -7,5 +7,6 @@
         public string Devise { get; set; }
         public decimal UnitPrice { get; set; }
         public string Delay { get; set; }
+        public float Discount { get; set; }
     }
 }

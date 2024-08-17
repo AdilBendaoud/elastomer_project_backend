@@ -8,6 +8,7 @@
         public int FournisseurId { get; set; }
         public Fournisseur Fournisseur { get; set; }
         public decimal UnitPrice { get; set; }
+        public float? Discount { get; set; }
         public string Devise { get; set; }
         public string? Delay {  get; set; }
     }

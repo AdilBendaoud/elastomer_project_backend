@@ -10,7 +10,6 @@ namespace projetStage.Models
         public Demande Demande { get; set; }
         public DateTime CreatedAt { get; set; }
         public int Qtt { get; set; }
-        public string Status { get; set; }
         public string? BonCommande { get; set; }
         public string? Name { get; set; }
         public string? Description { get; set; }

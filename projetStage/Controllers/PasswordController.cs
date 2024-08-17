@@ -34,18 +34,18 @@ namespace projetStage.Controllers
             {
                 return BadRequest("No user with that email address exists.");
             }
-
+            var token = Guid.NewGuid().ToString();
             var resetToken = new PasswordResetToken
             {
                 Email = model.Email,
-                Token = Guid.NewGuid().ToString(),
-                Expiration = DateTime.Now // Token valid for 1 hour
+                Token = BCrypt.Net.BCrypt.HashPassword(token),
+                Expiration = DateTime.Now.AddHours(1) // Token valid for 1 hour
             };
 
             _context.PasswordResetTokens.Add(resetToken);
             _context.SaveChanges();
 
-            await _emailService.SendEmail(model.Email, "Password Reset Request", $"Your reset code is: {resetToken.Token}");
+            await _emailService.SendEmail(model.Email, "Password Reset Request", $"<h3>Your reset code is: {token}</h3> <br> <p>please note this code is valid for 1 hour</p>");
 
             return Ok("Password reset code has been sent to your email.");
         }
@@ -53,9 +53,9 @@ namespace projetStage.Controllers
         [HttpPost("validate-reset-code")]
         public IActionResult ValidateResetCode([FromBody] PasswordResetValidationModel model)
         {
-            var resetToken = _context.PasswordResetTokens.SingleOrDefault(t => t.Email == model.Email && t.Token == model.ResetCode);
+            var resetToken = _context.PasswordResetTokens.OrderByDescending(t=> t.Expiration).FirstOrDefault(t => t.Email == model.Email);
 
-            if (resetToken == null || resetToken.Expiration < DateTime.Now)
+            if (resetToken == null || !BCrypt.Net.BCrypt.Verify(model.ResetCode, resetToken.Token) || resetToken.Expiration < DateTime.Now)
             {
                 return BadRequest("Invalid or expired reset code.");
             }
@@ -66,9 +66,9 @@ namespace projetStage.Controllers
         [HttpPost("reset-password")]
         public IActionResult ResetPassword([FromBody] ResetPasswordModel model)
         {
-            var resetToken = _context.PasswordResetTokens.SingleOrDefault(t => t.Email == model.Email && t.Token == model.ResetCode);
+            var resetToken = _context.PasswordResetTokens.OrderByDescending(t => t.Expiration).FirstOrDefault(t => t.Email == model.Email);
 
-            if (resetToken == null || resetToken.Expiration < DateTime.Now)
+            if (resetToken == null || !BCrypt.Net.BCrypt.Verify(model.ResetCode, resetToken.Token) || resetToken.Expiration < DateTime.Now)
             {
                 return BadRequest("Invalid or expired reset code.");
             }

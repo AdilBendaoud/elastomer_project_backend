@@ -84,11 +84,19 @@ namespace projetStage.Controllers
                 .Where(di => di.DemandeArticle.DemandeId == demande.Id && suppliers.Select(s => s.Id).Contains(di.FournisseurId))
                 .ToListAsync();
 
+            //fetch currency
+            var currencies = _context.Currencies.ToList();
+
             // Send email to all validators
             var validators = await _context.Users.Where(u => u.IsValidator).ToListAsync();
             var emailAddresses = validators.Select(v => v.Email).ToList();
             var emailSubject = "New Request Needs Validation";
-            var htmlTable = HTMLTableGenerator.GenerateHtmlTable(demande, devisItems, supplierRequests);
+            var exchangeRates = new Dictionary<string, float> { 
+                { "EUR", currencies.First(c=> c.CurrencyCode == "EUR").PriceInEur },
+                { "USD", currencies.First(c=> c.CurrencyCode == "USD").PriceInEur },
+                { "MAD", currencies.First(c=> c.CurrencyCode == "MAD").PriceInEur },
+                { "GBP", currencies.First(c=> c.CurrencyCode == "GBP").PriceInEur }};
+            var htmlTable = HTMLTableGenerator.GenerateHtmlTable(demande, devisItems, supplierRequests, exchangeRates);
             var emailBody = $"A new request with code {demande.Code} requires your validation. Please log in to the system to validate the request. <br><br>{htmlTable}";
 
             foreach (var email in emailAddresses)
@@ -128,7 +136,8 @@ namespace projetStage.Controllers
                             FournisseurId = supplier.Id,
                             UnitPrice = item.UnitPrice,
                             Devise = item.Devise,
-                            Delay = item.Delay
+                            Delay = item.Delay,
+                            Discount = item.Discount
                         };
                         _context.DevisItems.Add(devisItem);
                     }
@@ -137,6 +146,7 @@ namespace projetStage.Controllers
                         existingDevisItem.UnitPrice = item.UnitPrice;
                         existingDevisItem.Devise = item.Devise;
                         existingDevisItem.Delay = item.Delay;
+                        existingDevisItem.Discount = item.Discount;
                     }
                     await _context.SaveChangesAsync();
                 }

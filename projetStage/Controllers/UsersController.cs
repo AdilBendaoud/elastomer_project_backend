@@ -76,7 +76,7 @@ namespace projetStage.Controllers
                         usersQuery = usersQuery.Where(u => u.IsPurchaser);
                         break;
                     case "D":
-                        usersQuery = usersQuery.Where(u => u.IsRequester);
+                        usersQuery = usersQuery.Where(u => u.IsRequester && !u.IsPurchaser && !u.IsAdmin);
                         break;
                     case "V":
                         usersQuery = usersQuery.Where(u => u.IsValidator);
