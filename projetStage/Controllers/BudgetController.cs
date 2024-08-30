@@ -81,7 +81,6 @@ namespace projetStage.Controllers
                 }
             }
 
-
             var filteredActualData = allData.Where(d => d.DateCreation.Year == DateTime.Now.Year && d.Departement == departement).ToList();
             var filteredToData = allToData.
                                     GroupBy(d => d.Month)
@@ -135,48 +134,70 @@ namespace projetStage.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateOrUpdateBudget([FromBody] BudgetRequestModel model)
         {
-            if (model == null || string.IsNullOrEmpty(model.Departement))
+            if (model == null)
             {
                 return BadRequest("Invalid data provided.");
             }
 
+            var departments = new List<string>
+            {
+                "Maintenance General",
+                "Inginierie",
+                "Logistique",
+                "Production",
+                "Qualite",
+                "IT",
+                "Ressources Humaines",
+                "Finance"
+            };
+
+            int currentYear = DateTime.Now.Year;
+
             for (int i = 0; i < 12; i++)
             {
-                // Retrieve the existing budget entry if it exists
-                var existingBudget = await _context.Budgets
-                    .FirstOrDefaultAsync(b => b.Departement == model.Departement &&
-                                              b.Month == i + 1 &&
-                                              b.Year == DateTime.Now.Year);
+                int currentMonth = i + 1;
+                int newSalesBudget = model.SalesBudget.ElementAtOrDefault(i);
+                int newSalesForecast = model.SalesForecast.ElementAtOrDefault(i);
 
-                if (existingBudget != null)
+                foreach (var department in departments)
                 {
-                    // Update existing budget entry
-                    existingBudget.InitialBudget = model.InitialBudget.ElementAtOrDefault(i);
-                    existingBudget.SalesBudget = model.SalesBudget.ElementAtOrDefault(i);
-                    existingBudget.SalesForecast = model.SalesForecast.ElementAtOrDefault(i);
-                    existingBudget.Adjustment = model.Adjustment.ElementAtOrDefault(i);
-                    existingBudget.BudgetIP = model.BudgetIP.ElementAtOrDefault(i);
-                }
-                else
-                {
-                    // Create a new budget entry
-                    var newBudget = new Budget
+                    var existingBudget = await _context.Budgets
+                        .FirstOrDefaultAsync(b => b.Departement == department && b.Month == currentMonth && b.Year == currentYear);
+
+                    if (existingBudget != null)
                     {
-                        Departement = model.Departement,
-                        Month = i + 1,
-                        Year = DateTime.Now.Year,
-                        InitialBudget = model.InitialBudget.ElementAtOrDefault(i),
-                        SalesBudget = model.SalesBudget.ElementAtOrDefault(i),
-                        SalesForecast = model.SalesForecast.ElementAtOrDefault(i),
-                        Adjustment = model.Adjustment.ElementAtOrDefault(i),
-                        BudgetIP = model.BudgetIP.ElementAtOrDefault(i),
-                    };
-                    _context.Budgets.Add(newBudget);
+                        // Update existing budget entry
+                        if (department == model.Departement)
+                        {
+                            existingBudget.InitialBudget = model.InitialBudget.ElementAtOrDefault(i);
+                            existingBudget.Adjustment = model.Adjustment.ElementAtOrDefault(i);
+                            existingBudget.BudgetIP = model.BudgetIP.ElementAtOrDefault(i);
+                        }
+                        existingBudget.SalesBudget = newSalesBudget;
+                        existingBudget.SalesForecast = newSalesForecast;
+                    }
+                    else
+                    {
+                        // Create a new budget entry
+                        var newBudget = new Budget
+                        {
+                            Departement = department,
+                            Month = currentMonth,
+                            Year = currentYear,
+                            SalesBudget = newSalesBudget,
+                            SalesForecast = newSalesForecast,
+                            InitialBudget = department == model.Departement ? model.InitialBudget.ElementAtOrDefault(i) : 0,
+                            Adjustment = department == model.Departement ? model.Adjustment.ElementAtOrDefault(i) : 0,
+                            BudgetIP = department == model.Departement ? model.BudgetIP.ElementAtOrDefault(i) : 0
+                        };
+                        _context.Budgets.Add(newBudget);
+                    }
                 }
             }
 
             await _context.SaveChangesAsync();
             return Ok("Budget data saved or updated successfully.");
         }
+
     }
 }

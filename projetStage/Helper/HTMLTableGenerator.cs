@@ -8,8 +8,8 @@ namespace projetStage.Helper
     public class HTMLTableGenerator
     {
         public static string GenerateHtmlTable(
-            Demande demande, 
-            IEnumerable<DevisItem> supplierOffers, 
+            Demande demande,
+            IEnumerable<DevisItem> supplierOffers,
             List<SupplierRequest> supplierRequests,
             Dictionary<string, float> exchangeRates)
         {
@@ -56,40 +56,53 @@ namespace projetStage.Helper
 
             sb.Append("</tr>");
 
-            //Add rows for each article
+            // Add rows for each article
             foreach (var article in demande.DemandeArticles)
+            {
+                // Check if the article is the "Delivery Fee" and if no supplier has an offer for it
+                if (article.Name == "Delivery Fee")
                 {
-                    sb.Append("<tr>");
-                    sb.Append($"<td style=\"text-align: center;\">{article.Name}</td>");
-                    sb.Append($"<td style=\"text-align: center;\">{article.Description}</td>");
-                    sb.Append($"<td style=\"text-align: center;\">{article.Qtt.ToString()}</td>");
-
-                    foreach (var supplier in suppliers)
+                    bool hasDeliveryOffer = suppliers.Any(supplier => supplierOffers.Any(o => o.FournisseurId == supplier.Id && o.DemandeArticleId == article.Id));
+                    if (!hasDeliveryOffer)
                     {
-                        var offer = supplierOffers.FirstOrDefault(o => o.FournisseurId == supplier.Id && o.DemandeArticleId == article.Id);
-                        if (offer != null)
-                        {
-                            var style = supplier.Id == selectedSupplier.Supplier.Id ? "bgcolor = \"#d1ffd1\" style='background-color: #d1ffd1;text-align: center;'" : "style=\"text-align: center;\"";
-                            float convertedUnitPrice = (float)offer.UnitPrice * exchangeRates[offer.Devise];
-                            float? unitPriceAfterDisount = offer.Discount != 0 ? (convertedUnitPrice - (convertedUnitPrice * offer.Discount / 100)) : convertedUnitPrice ;
-
-                            sb.Append($"<td {style}> € {convertedUnitPrice.ToString("F2")}</td>");
-                            sb.Append($"<td {style}>{offer.Discount}%</td>");
-                            sb.Append($"<td {style}> € {( unitPriceAfterDisount * article.Qtt)?.ToString("F2")}</td>");
-                            sb.Append($"<td {style}>{offer.Delay}</td>");
-                        }
-                        else
-                        {
-                            sb.Append("<td style=\"text-align: center;\">-</td>" +
-                                "<td style=\"text-align: center;\">-</td>" +
-                                "<td style=\"text-align: center;\">-</td>" +
-                                "<td style=\"text-align: center;\">-</td>");
-                        }
+                        continue; // Skip this article if no supplier offers delivery
                     }
-                    sb.Append("</tr>");
                 }
 
-            //Add total row
+                sb.Append("<tr>");
+                sb.Append($"<td style=\"text-align: center;\">{article.Name}</td>");
+                sb.Append($"<td style=\"text-align: center;\">{article.Description}</td>");
+                sb.Append($"<td style=\"text-align: center;\">{article.Qtt.ToString()}</td>");
+
+                foreach (var supplier in suppliers)
+                {
+                    var style = supplier.Id == selectedSupplier.Supplier.Id ? "bgcolor = \"#d1ffd1\" style='background-color: #d1ffd1;text-align: center;'" : "style=\"text-align: center;\"";
+                    var offer = supplierOffers.FirstOrDefault(o => o.FournisseurId == supplier.Id && o.DemandeArticleId == article.Id);
+                    if (offer != null)
+                    {
+                        
+                        float convertedUnitPrice = (float)offer.UnitPrice * exchangeRates[offer.Devise];
+                        float? unitPriceAfterDiscount = offer.Discount != 0 ? (convertedUnitPrice - (convertedUnitPrice * offer.Discount / 100)) : convertedUnitPrice;
+
+                        sb.Append($"<td {style}> € {convertedUnitPrice.ToString("F2")}</td>");
+                        sb.Append($"<td {style}>{offer.Discount}%</td>");
+                        sb.Append($"<td {style}> € {(unitPriceAfterDiscount * article.Qtt)?.ToString("F2")}</td>");
+                        sb.Append($"<td {style}>{offer.Delay}</td>");
+                    }
+                    else
+                    {
+                        sb.Append(
+                            $"<td {style}>-</td>" +
+                            $"<td {style}>-</td>" +
+                            $"<td {style}>-</td>" +
+                            $"<td {style}>-</td>"
+                        );
+                    }
+                }
+                sb.Append("</tr>");
+            }
+
+            // Add total row
             sb.Append("<tr>");
             sb.Append("<td colspan='3' style='font-weight: bold; text-align: center;'>Total</td>");
 
@@ -101,16 +114,16 @@ namespace projetStage.Helper
                     {
                         var articleQuantity = demande.DemandeArticles.FirstOrDefault(da => da.Id == o.DemandeArticleId)?.Qtt ?? 0;
                         var unitPriceWithDiscount = o.Discount != 0
-                            ? ((float)o.UnitPrice - ( (float)o.UnitPrice * o.Discount / 100))
+                            ? ((float)o.UnitPrice - ((float)o.UnitPrice * o.Discount / 100))
                             : (float)o.UnitPrice;
-                        return (float)unitPriceWithDiscount * exchangeRates[o.Devise] * articleQuantity;
+                        return unitPriceWithDiscount * exchangeRates[o.Devise] * articleQuantity;
                     });
 
                 var totalEURStyle = supplier.Id == selectedSupplier.Supplier.Id
                     ? "bgcolor = \"#d1ffd1\" style='background-color: #d1ffd1; font-weight: bold;text-align: center;'"
                     : "style='font-weight: bold;text-align: center;'";
 
-                sb.Append($"<td colspan='4' {totalEURStyle}> € {totalInEUR.ToString("F2")}</td>");
+                sb.Append($"<td colspan='4' {totalEURStyle}> € {((decimal)totalInEUR).ToString("F2")}</td>");
             }
 
             sb.Append("</tr>");
@@ -119,5 +132,6 @@ namespace projetStage.Helper
 
             return sb.ToString();
         }
+
     }
 }

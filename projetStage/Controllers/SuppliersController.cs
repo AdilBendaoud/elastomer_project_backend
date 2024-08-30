@@ -2,10 +2,12 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using projetStage.Data;
 using projetStage.DTO.demandes;
 using projetStage.Models;
 using projetStage.Services;
+using System.Data.SqlClient;
 using System.Text;
 using System.Threading.Channels;
 
@@ -17,11 +19,13 @@ namespace projetStage.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IEmailService _emailService;
+        private readonly IConfiguration _configuration;
 
-        public SuppliersController(AppDbContext context, IEmailService emailService)
+        public SuppliersController(AppDbContext context, IEmailService emailService, IConfiguration configuration)
         {
             _context = context;
             _emailService = emailService;
+            _configuration = configuration;
         }
 
         [HttpGet]
@@ -69,16 +73,44 @@ namespace projetStage.Controllers
                 return NotFound("Demande not found");
             }
 
-            // Get the IDs of suppliers who have already received the request
-            var excludedSupplierIds = await _context.SupplierRequests
+            // Get the names of suppliers who have already received the request
+            var excludedSupplierNames = await _context.SupplierRequests
                 .Where(sr => sr.DemandeId == demande.Id)
-                .Select(sr => sr.SupplierId)
+                .Select(sr => sr.Supplier.Nom)
                 .ToListAsync();
 
-            // Filter suppliers by name and exclude the ones already sent the request
-            var suppliers = await _context.Fournisseurs
-                .Where(s => s.Nom.Contains(query) && !excludedSupplierIds.Contains(s.Id))
-                .ToListAsync();
+            var excludedNamesString = string.Join("', '", excludedSupplierNames);
+            var sqlQuery = $@"
+                            SELECT Id, Nom, Adresse, Email 
+                            FROM Fournisseurs 
+                            WHERE Nom LIKE @Query 
+                            AND Nom NOT IN ('{excludedNamesString}')";
+
+            List<Fournisseur> suppliers = new List<Fournisseur>();
+
+            string connectionString = _configuration.GetSection("ConnectionStrings")["SqlServerConnectionString"];
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                using (SqlCommand command = new SqlCommand(sqlQuery, connection))
+                {
+                    command.Parameters.AddWithValue("@Query", "%" + query + "%");
+                    connection.Open();
+                    using (SqlDataReader reader = await command.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            Fournisseur supplier = new Fournisseur
+                            { 
+                                Id = reader.GetInt32(0),
+                                Nom = reader.GetString(1),
+                                Adresse = reader.GetString(2),
+                                Email = reader.GetString(3)
+                            };
+                            suppliers.Add(supplier);
+                        }
+                    }
+                }
+            }
 
             return Ok(suppliers);
         }
@@ -98,10 +130,36 @@ namespace projetStage.Controllers
             await _context.SaveChangesAsync();
         }
 
+        private async Task<Fournisseur> FetchSupplierFromAnotherDatabase(string connectionString, string supplierName)
+        {
+            string query = "SELECT Id, Nom, Adresse, Email FROM fournisseurs WHERE Nom = @SupplierName";
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                using (SqlCommand command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@SupplierName", supplierName);
+                    connection.Open();
+                    using (SqlDataReader reader = await command.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            return new Fournisseur
+                            {
+                                Nom = reader["Nom"].ToString(),
+                                Adresse = reader["Adresse"].ToString(),
+                                Email = reader["Email"].ToString(),
+                            };
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
         [HttpPost("send-to-suppliers")]
         public async Task<IActionResult> SendToSuppliers([FromBody] SendRequestToSuppliersModel model)
         {
-            if (model == null || string.IsNullOrEmpty(model.RequestCode) || model.SupplierIds == null || !model.SupplierIds.Any())
+            if (model == null || string.IsNullOrEmpty(model.RequestCode) || model.SupplierNames == null || !model.SupplierNames.Any())
             {
                 return BadRequest("Invalid request payload.");
             }
@@ -112,10 +170,31 @@ namespace projetStage.Controllers
                 return NotFound("Demande not found.");
             }
 
-            var suppliers = await _context.Fournisseurs.Where(s => model.SupplierIds.Contains(s.Id)).ToListAsync();
-            if (suppliers.Count != model.SupplierIds.Count)
+            var existingSuppliers = await _context.Fournisseurs
+                .Where(s => model.SupplierNames.Contains(s.Nom))
+                .ToListAsync();
+
+            var missingSupplierNames = model.SupplierNames
+                .Except(existingSuppliers.Select(s => s.Nom))
+                .ToList();
+
+            if (missingSupplierNames.Any())
             {
-                return BadRequest("Some suppliers not found.");
+                string connectionString = _configuration.GetSection("ConnectionStrings")["SqlServerConnectionString"];
+                foreach (var missingName in missingSupplierNames)
+                {
+                    var fetchedSupplier = await FetchSupplierFromAnotherDatabase(connectionString, missingName);
+                    if (fetchedSupplier != null)
+                    {
+                        _context.Fournisseurs.Add(fetchedSupplier);
+                        existingSuppliers.Add(fetchedSupplier);
+                    }
+                    else
+                    {
+                        return BadRequest($"Supplier with name {missingName} not found in any database.");
+                    }
+                }
+                await _context.SaveChangesAsync();
             }
 
             var purchaser = await _context.Users.FirstOrDefaultAsync(a => a.Code == model.UserCode);
@@ -130,25 +209,7 @@ namespace projetStage.Controllers
 
             var emailBody = BuildEmailBody(demandeArticles);
 
-            //foreach (var supplier in suppliers)
-            //{
-            //    var previoudData = await _context.SupplierRequests.FirstOrDefaultAsync(s => s.DemandeId == demande.Id && s.SupplierId == supplier.Id);
-            //    if(previoudData == null)
-            //    {
-            //        var supplierRequest = new SupplierRequest
-            //        {
-            //            DemandeId = demande.Id,
-            //            SupplierId = supplier.Id,
-            //            SentAt = DateTime.Now
-            //        };
-            //        _context.SupplierRequests.Add(supplierRequest);
-            //    }
-
-            //    // Enqueue the email sending as a background job
-            //    BackgroundJob.Enqueue(() => _emailService.SendEmail(purchaser.Email, supplier.Email, demande.Code, emailBody));
-            //}
-
-            await Task.Run(() => SendEmailToSuppliers(demande, purchaser, suppliers, emailBody));
+            await Task.Run(() => SendEmailToSuppliers(demande, purchaser, existingSuppliers, emailBody));
 
             demande.AcheteurId = purchaser.Id;
             demande.Status = DemandeStatus.WO;

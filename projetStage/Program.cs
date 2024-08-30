@@ -13,17 +13,19 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy(
         name: MyAllowSpecificOrigins,
-        policy =>{policy.WithOrigins("http://localhost:3000").AllowAnyHeader().AllowAnyMethod();}
+        policy =>{policy.WithOrigins("*").AllowAnyHeader().AllowAnyMethod();}
     );
 });
 
 // Add services to the container.
 builder.Services.AddControllers().AddNewtonsoftJson(options =>{
         options.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
-    });
+});
 
-var connectionString = builder.Configuration.GetConnectionString("AppDbConnectionString");
-builder.Services.AddDbContext<AppDbContext>(options => options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+
+var connectionString = builder.Configuration.GetSection("ConnectionStrings")["AppDbConnectionString"];
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
+
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
@@ -61,12 +63,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors(MyAllowSpecificOrigins);
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
-app.UseAuthentication();
+app.UseCors(MyAllowSpecificOrigins);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

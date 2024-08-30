@@ -45,7 +45,7 @@ namespace projetStage.Controllers
             _context.PasswordResetTokens.Add(resetToken);
             _context.SaveChanges();
 
-            await _emailService.SendEmail(model.Email, "Password Reset Request", $"<h3>Your reset code is: {token}</h3> <br> <p>please note this code is valid for 1 hour</p>");
+            await _emailService.SendEmail(model.Email, "Password Reset Request", $"<p>Your reset code is: {token}</p> <br> <p>please note this code is valid for 1 hour</p>");
 
             return Ok("Password reset code has been sent to your email.");
         }

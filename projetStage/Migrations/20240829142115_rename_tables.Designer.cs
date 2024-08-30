@@ -12,49 +12,75 @@ using projetStage.Data;
 namespace projetStage.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20240719141122_addSelectedFieldInSupplierRequests")]
-    partial class addSelectedFieldInSupplierRequests
+    [Migration("20240829142115_rename_tables")]
+    partial class rename_tables
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.6")
-                .HasAnnotation("Relational:MaxIdentifierLength", 64);
+                .HasAnnotation("ProductVersion", "8.0.8")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
-            MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("projetStage.Models.Article", b =>
+            modelBuilder.Entity("projetStage.Models.Budget", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
+                    b.Property<int?>("Adjustment")
+                        .HasColumnType("int");
 
-                    b.Property<string>("Description")
+                    b.Property<int?>("BudgetIP")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Departement")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Destination")
-                        .IsRequired()
-                        .HasColumnType("longtext");
+                    b.Property<int?>("InitialBudget")
+                        .HasColumnType("int");
 
-                    b.Property<string>("FamilleDeProduit")
-                        .IsRequired()
-                        .HasColumnType("longtext");
+                    b.Property<int>("Month")
+                        .HasColumnType("int");
 
-                    b.Property<string>("Nom")
-                        .IsRequired()
-                        .HasColumnType("longtext");
+                    b.Property<int?>("SalesBudget")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SalesForecast")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.ToTable("WESM_articles");
+                    b.ToTable("WESM_Budgets");
+                });
+
+            modelBuilder.Entity("projetStage.Models.Currency", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<float>("PriceInEur")
+                        .HasColumnType("real");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("WESM_currencies");
                 });
 
             modelBuilder.Entity("projetStage.Models.Demande", b =>
@@ -63,47 +89,50 @@ namespace projetStage.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int?>("AcheteurId")
                         .HasColumnType("int");
 
                     b.Property<string>("Code")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("CommentCFO")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("CommentCOO")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("DemandeurId")
                         .HasColumnType("int");
 
                     b.Property<bool>("IsValidateurCFORejected")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsValidateurCFOValidated")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsValidateurCOORejected")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsValidateurCOOValidated")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastModification")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("OpenedAt")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("ValidatedOrRejectedByCFOAt")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("ValidatedOrRejectedByCOOAt")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int?>("ValidateurCFOId")
                         .HasColumnType("int");
@@ -130,42 +159,33 @@ namespace projetStage.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("ArticleId")
-                        .HasColumnType("int");
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("BonCommande")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("DemandeId")
                         .HasColumnType("int");
 
                     b.Property<string>("Description")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Destination")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("FamilleDeProduit")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Qtt")
                         .HasColumnType("int");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
                     b.HasKey("Id");
-
-                    b.HasIndex("ArticleId");
 
                     b.HasIndex("DemandeId");
 
@@ -178,17 +198,17 @@ namespace projetStage.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("DateChanged")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("DemandeId")
                         .HasColumnType("int");
 
                     b.Property<string>("Details")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("UserCode")
                         .HasColumnType("int");
@@ -206,26 +226,26 @@ namespace projetStage.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("Delay")
-                        .HasColumnType("int");
+                    b.Property<string>("Delay")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("DemandeArticleId")
                         .HasColumnType("int");
 
                     b.Property<string>("Devise")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<float?>("Discount")
+                        .HasColumnType("real");
 
                     b.Property<int>("FournisseurId")
                         .HasColumnType("int");
 
-                    b.Property<int>("Quantity")
-                        .HasColumnType("int");
-
                     b.Property<decimal>("UnitPrice")
-                        .HasColumnType("decimal(65,30)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
 
@@ -233,7 +253,7 @@ namespace projetStage.Migrations
 
                     b.HasIndex("FournisseurId");
 
-                    b.ToTable("DevisItems");
+                    b.ToTable("WESM_devisItems");
                 });
 
             modelBuilder.Entity("projetStage.Models.Fournisseur", b =>
@@ -242,19 +262,19 @@ namespace projetStage.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Adresse")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Nom")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -267,18 +287,18 @@ namespace projetStage.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("Expiration")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Token")
                         .IsRequired()
-                        .HasColumnType("varchar(255)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
@@ -294,19 +314,19 @@ namespace projetStage.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("DemandeId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("SentAt")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("SupplierId")
                         .HasColumnType("int");
 
                     b.Property<bool>("isSelectedForValidation")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.HasKey("Id");
 
@@ -314,7 +334,7 @@ namespace projetStage.Migrations
 
                     b.HasIndex("SupplierId");
 
-                    b.ToTable("SupplierRequests");
+                    b.ToTable("WESM_supplierRequests");
                 });
 
             modelBuilder.Entity("projetStage.Models.User", b =>
@@ -323,7 +343,7 @@ namespace projetStage.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("Code")
                         .HasColumnType("int");
@@ -331,41 +351,44 @@ namespace projetStage.Migrations
                     b.Property<string>("Departement")
                         .IsRequired()
                         .HasMaxLength(4)
-                        .HasColumnType("varchar(4)");
+                        .HasColumnType("nvarchar(4)");
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("FirstName")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsAdmin")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsPurchaser")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsRequester")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsValidator")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("LastName")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("NeedsPasswordChange")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Password")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("ReOpenRequestAfterValidation")
+                        .HasColumnType("bit");
 
                     b.HasKey("Id");
 
@@ -409,17 +432,11 @@ namespace projetStage.Migrations
 
             modelBuilder.Entity("projetStage.Models.DemandeArticle", b =>
                 {
-                    b.HasOne("projetStage.Models.Article", "Article")
-                        .WithMany("DemandeArticles")
-                        .HasForeignKey("ArticleId");
-
                     b.HasOne("projetStage.Models.Demande", "Demande")
                         .WithMany("DemandeArticles")
                         .HasForeignKey("DemandeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Article");
 
                     b.Navigation("Demande");
                 });
@@ -471,11 +488,6 @@ namespace projetStage.Migrations
                     b.Navigation("Demande");
 
                     b.Navigation("Supplier");
-                });
-
-            modelBuilder.Entity("projetStage.Models.Article", b =>
-                {
-                    b.Navigation("DemandeArticles");
                 });
 
             modelBuilder.Entity("projetStage.Models.Demande", b =>

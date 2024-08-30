@@ -1,5 +1,8 @@
-﻿namespace projetStage.Models
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace projetStage.Models
 {
+    [Table("WESM_supplierRequests")]
     public class SupplierRequest
     {
         public int Id { get; set; }

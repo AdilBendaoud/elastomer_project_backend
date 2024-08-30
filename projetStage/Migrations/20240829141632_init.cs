@@ -1,5 +1,4 @@
 ﻿using System;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -12,121 +11,133 @@ namespace projetStage.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AlterDatabase()
-                .Annotation("MySql:CharSet", "utf8mb4");
+            migrationBuilder.CreateTable(
+                name: "Budgets",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Departement = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Month = table.Column<int>(type: "int", nullable: false),
+                    Year = table.Column<int>(type: "int", nullable: false),
+                    InitialBudget = table.Column<int>(type: "int", nullable: true),
+                    SalesBudget = table.Column<int>(type: "int", nullable: true),
+                    SalesForecast = table.Column<int>(type: "int", nullable: true),
+                    Adjustment = table.Column<int>(type: "int", nullable: true),
+                    BudgetIP = table.Column<int>(type: "int", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Budgets", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Currencies",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    CurrencyCode = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    PriceInEur = table.Column<float>(type: "real", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Currencies", x => x.Id);
+                });
 
             migrationBuilder.CreateTable(
                 name: "WESM_articles",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
-                    Nom = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Description = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    FamilleDeProduit = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Destination = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Nom = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    FamilleDeProduit = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Destination = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_WESM_articles", x => x.Id);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
+                });
 
             migrationBuilder.CreateTable(
                 name: "WESM_fournisseurs",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
-                    Nom = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Adresse = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Email = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Nom = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Adresse = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Email = table.Column<string>(type: "nvarchar(max)", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_WESM_fournisseurs", x => x.Id);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
+                });
 
             migrationBuilder.CreateTable(
                 name: "WESM_passwordResetTokens",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
-                    Email = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Token = table.Column<string>(type: "varchar(255)", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Expiration = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Email = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Token = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    Expiration = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_WESM_passwordResetTokens", x => x.Id);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
+                });
 
             migrationBuilder.CreateTable(
                 name: "WESM_users",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("SqlServer:Identity", "1, 1"),
                     Code = table.Column<int>(type: "int", nullable: false),
-                    FirstName = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    LastName = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Email = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Password = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Departement = table.Column<string>(type: "varchar(4)", maxLength: 4, nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    NeedsPasswordChange = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    IsActive = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    IsAdmin = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    IsPurchaser = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    IsRequester = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    IsValidator = table.Column<bool>(type: "tinyint(1)", nullable: false)
+                    FirstName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    LastName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Email = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Password = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Departement = table.Column<string>(type: "nvarchar(4)", maxLength: 4, nullable: false),
+                    NeedsPasswordChange = table.Column<bool>(type: "bit", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    IsAdmin = table.Column<bool>(type: "bit", nullable: false),
+                    IsPurchaser = table.Column<bool>(type: "bit", nullable: false),
+                    IsRequester = table.Column<bool>(type: "bit", nullable: false),
+                    IsValidator = table.Column<bool>(type: "bit", nullable: false),
+                    ReOpenRequestAfterValidation = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_WESM_users", x => x.Id);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
+                });
 
             migrationBuilder.CreateTable(
                 name: "WESM_demandes",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
-                    Code = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Code = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Status = table.Column<int>(type: "int", nullable: false),
                     DemandeurId = table.Column<int>(type: "int", nullable: false),
-                    OpenedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    OpenedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     ValidateurCFOId = table.Column<int>(type: "int", nullable: true),
-                    CommentCFO = table.Column<string>(type: "longtext", nullable: true)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    IsValidateurCFOValidated = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    IsValidateurCFORejected = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    ValidatedOrRejectedByCFOAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    CommentCFO = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    IsValidateurCFOValidated = table.Column<bool>(type: "bit", nullable: false),
+                    IsValidateurCFORejected = table.Column<bool>(type: "bit", nullable: false),
+                    ValidatedOrRejectedByCFOAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastModification = table.Column<DateTime>(type: "datetime2", nullable: true),
                     ValidateurCOOId = table.Column<int>(type: "int", nullable: true),
-                    CommentCOO = table.Column<string>(type: "longtext", nullable: true)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    IsValidateurCOOValidated = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    IsValidateurCOORejected = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    ValidatedOrRejectedByCOOAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    CommentCOO = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    IsValidateurCOOValidated = table.Column<bool>(type: "bit", nullable: false),
+                    IsValidateurCOORejected = table.Column<bool>(type: "bit", nullable: false),
+                    ValidatedOrRejectedByCOOAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     AcheteurId = table.Column<int>(type: "int", nullable: true)
                 },
                 constraints: table =>
@@ -156,18 +167,18 @@ namespace projetStage.Migrations
                         principalTable: "WESM_users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
+                });
 
             migrationBuilder.CreateTable(
                 name: "SupplierRequests",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("SqlServer:Identity", "1, 1"),
                     DemandeId = table.Column<int>(type: "int", nullable: false),
                     SupplierId = table.Column<int>(type: "int", nullable: false),
-                    SentAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                    isSelectedForValidation = table.Column<bool>(type: "bit", nullable: false),
+                    SentAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -184,60 +195,44 @@ namespace projetStage.Migrations
                         principalTable: "WESM_fournisseurs",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
+                });
 
             migrationBuilder.CreateTable(
                 name: "WESM_demandeArticles",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("SqlServer:Identity", "1, 1"),
                     DemandeId = table.Column<int>(type: "int", nullable: false),
-                    ArticleId = table.Column<int>(type: "int", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     Qtt = table.Column<int>(type: "int", nullable: false),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    BonCommande = table.Column<string>(type: "longtext", nullable: true)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Name = table.Column<string>(type: "longtext", nullable: true)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Description = table.Column<string>(type: "longtext", nullable: true)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    FamilleDeProduit = table.Column<string>(type: "longtext", nullable: true)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Destination = table.Column<string>(type: "longtext", nullable: true)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    BonCommande = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Description = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    FamilleDeProduit = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Destination = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_WESM_demandeArticles", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_WESM_demandeArticles_WESM_articles_ArticleId",
-                        column: x => x.ArticleId,
-                        principalTable: "WESM_articles",
-                        principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_WESM_demandeArticles_WESM_demandes_DemandeId",
                         column: x => x.DemandeId,
                         principalTable: "WESM_demandes",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
+                });
 
             migrationBuilder.CreateTable(
                 name: "WESM_demandeHistories",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("SqlServer:Identity", "1, 1"),
                     DemandeId = table.Column<int>(type: "int", nullable: false),
                     UserCode = table.Column<int>(type: "int", nullable: false),
-                    DateChanged = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    Details = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DateChanged = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Details = table.Column<string>(type: "nvarchar(max)", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -248,49 +243,20 @@ namespace projetStage.Migrations
                         principalTable: "WESM_demandes",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
-
-            migrationBuilder.CreateTable(
-                name: "WESM_devis",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
-                    DemandeId = table.Column<int>(type: "int", nullable: false),
-                    FournisseurId = table.Column<int>(type: "int", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_WESM_devis", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_WESM_devis_WESM_demandes_DemandeId",
-                        column: x => x.DemandeId,
-                        principalTable: "WESM_demandes",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_WESM_devis_WESM_fournisseurs_FournisseurId",
-                        column: x => x.FournisseurId,
-                        principalTable: "WESM_fournisseurs",
-                        principalColumn: "Id");
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
+                });
 
             migrationBuilder.CreateTable(
                 name: "DevisItems",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                        .Annotation("SqlServer:Identity", "1, 1"),
                     DemandeArticleId = table.Column<int>(type: "int", nullable: false),
                     FournisseurId = table.Column<int>(type: "int", nullable: false),
-                    Quantity = table.Column<int>(type: "int", nullable: false),
-                    UnitPrice = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
-                    Devise = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Delay = table.Column<DateOnly>(type: "date", nullable: false),
-                    DevisId = table.Column<int>(type: "int", nullable: true)
+                    UnitPrice = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    Discount = table.Column<float>(type: "real", nullable: true),
+                    Devise = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Delay = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -302,28 +268,17 @@ namespace projetStage.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_DevisItems_WESM_devis_DevisId",
-                        column: x => x.DevisId,
-                        principalTable: "WESM_devis",
-                        principalColumn: "Id");
-                    table.ForeignKey(
                         name: "FK_DevisItems_WESM_fournisseurs_FournisseurId",
                         column: x => x.FournisseurId,
                         principalTable: "WESM_fournisseurs",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
+                });
 
             migrationBuilder.CreateIndex(
                 name: "IX_DevisItems_DemandeArticleId",
                 table: "DevisItems",
                 column: "DemandeArticleId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_DevisItems_DevisId",
-                table: "DevisItems",
-                column: "DevisId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_DevisItems_FournisseurId",
@@ -339,11 +294,6 @@ namespace projetStage.Migrations
                 name: "IX_SupplierRequests_SupplierId",
                 table: "SupplierRequests",
                 column: "SupplierId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_WESM_demandeArticles_ArticleId",
-                table: "WESM_demandeArticles",
-                column: "ArticleId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_WESM_demandeArticles_DemandeId",
@@ -376,16 +326,6 @@ namespace projetStage.Migrations
                 column: "ValidateurCOOId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_WESM_devis_DemandeId",
-                table: "WESM_devis",
-                column: "DemandeId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_WESM_devis_FournisseurId",
-                table: "WESM_devis",
-                column: "FournisseurId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_WESM_passwordResetTokens_Token",
                 table: "WESM_passwordResetTokens",
                 column: "Token",
@@ -402,10 +342,19 @@ namespace projetStage.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
+                name: "Budgets");
+
+            migrationBuilder.DropTable(
+                name: "Currencies");
+
+            migrationBuilder.DropTable(
                 name: "DevisItems");
 
             migrationBuilder.DropTable(
                 name: "SupplierRequests");
+
+            migrationBuilder.DropTable(
+                name: "WESM_articles");
 
             migrationBuilder.DropTable(
                 name: "WESM_demandeHistories");
@@ -417,16 +366,10 @@ namespace projetStage.Migrations
                 name: "WESM_demandeArticles");
 
             migrationBuilder.DropTable(
-                name: "WESM_devis");
-
-            migrationBuilder.DropTable(
-                name: "WESM_articles");
+                name: "WESM_fournisseurs");
 
             migrationBuilder.DropTable(
                 name: "WESM_demandes");
-
-            migrationBuilder.DropTable(
-                name: "WESM_fournisseurs");
 
             migrationBuilder.DropTable(
                 name: "WESM_users");

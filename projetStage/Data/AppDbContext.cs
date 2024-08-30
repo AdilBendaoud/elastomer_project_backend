@@ -1,16 +1,14 @@
-﻿// Data/AppDbContext.cs
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using projetStage.Models;
 
 namespace projetStage.Data
 {
     public class AppDbContext : DbContext
     {
-        public AppDbContext(DbContextOptions options) : base(options) { }
+        public AppDbContext(DbContextOptions<AppDbContext> options): base(options){}
         public DbSet<User> Users { get; set; }
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
         public DbSet<Demande> Demandes { get; set; }
-        public DbSet<Article> Articles { get; set; }
         public DbSet<DemandeArticle> DemandeArticles { get; set; }
         public DbSet<DevisItem> DevisItems { get; set; }
         public DbSet<Fournisseur> Fournisseurs { get; set; }
@@ -30,8 +28,6 @@ namespace projetStage.Data
                 .Property(u => u.Departement)
                 .HasMaxLength(4);
 
-            //modelBuilder.Entity<User>().Property(u => u.Role).HasMaxLength(1);
-
             modelBuilder.Entity<User>()
                 .HasKey(u => u.Id);
             modelBuilder.Entity<User>()
@@ -40,9 +36,6 @@ namespace projetStage.Data
 
             modelBuilder.Entity<Demande>().HasKey(u => u.Id);
             modelBuilder.Entity<Demande>().Property(u => u.Id).ValueGeneratedOnAdd();
-
-            modelBuilder.Entity<Article>().HasKey(u => u.Id);
-            modelBuilder.Entity<Article>().Property(u => u.Id).ValueGeneratedOnAdd();
 
             modelBuilder.Entity<PasswordResetToken>().HasIndex(t => t.Token).IsUnique();
 
@@ -97,6 +90,17 @@ namespace projetStage.Data
                 .HasOne(di => di.DemandeArticle)
                 .WithMany(da => da.DevisItems)
                 .HasForeignKey(di => di.DemandeArticleId);
+
+            modelBuilder.Entity<DevisItem>()
+                .Property(di => di.UnitPrice)
+                .HasPrecision(18, 2);
+            
+            modelBuilder.Entity<Currency>().HasData(
+                new Currency { Id = 1, CurrencyCode = "USD", PriceInEur = 0.92f },
+                new Currency { Id = 2, CurrencyCode = "MAD", PriceInEur = 0.093f },
+                new Currency { Id = 3, CurrencyCode = "GBP", PriceInEur = 1.17f },
+                new Currency { Id = 4, CurrencyCode = "EUR", PriceInEur = 1.00f }
+            );
         }
     }
 }

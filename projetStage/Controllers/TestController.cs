@@ -10,24 +10,31 @@ namespace projetStage.Controllers
     {
 
         [HttpGet]
-        public void Get() 
+        public IActionResult Get() 
         {
-            string connectionString = "Server=localhost\\SQLEXPRESS;Database=elastomer;Trusted_Connection=True;";
-            string query = "SELECT FirstName, LastName FROM Persons";
+            string connectionString = "Server=localhost\\SQLEXPRESS;Database=appDb;User Id=elastomer_app;Password=StrongPassword123;";
+            
+            string query = "SELECT CurrencyCode FROM WESM_currencies";
+            List<string> myNames = new List<String>();
 
-            using (SqlConnection connection = new (connectionString))
-            {
-                SqlCommand command = new (query, connection);
-                connection.Open();
-
-                using (SqlDataReader reader = command.ExecuteReader())
+            try {
+                using (SqlConnection connection = new(connectionString))
                 {
-                    while (reader.Read())
+                    SqlCommand command = new(query, connection);
+                    connection.Open();
+                    using (SqlDataReader reader = command.ExecuteReader())
                     {
-                        Console.WriteLine($"{reader["FirstName"]}, {reader["LastName"]}");
+                        while (reader.Read())
+                        {
+                            myNames.Add(reader.GetString(0));
+                        }
                     }
                 }
+            } catch(Exception ex)
+            {
+                return BadRequest(ex.Message);
             }
+            return Ok(myNames);
         }
 
         [HttpGet("hour")]

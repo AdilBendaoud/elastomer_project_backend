@@ -8,6 +8,7 @@ using projetStage.Helper;
 using projetStage.Models;
 using projetStage.Services;
 using System.Linq;
+using System.Text;
 
 namespace projetStage.Controllers
 {
@@ -19,13 +20,15 @@ namespace projetStage.Controllers
         private readonly IPasswordService _passwordService;
         private readonly AppDbContext _context;
         private readonly IEmailService _emailService;
+        private readonly IConfiguration _configuration;
 
-        public AuthController(ITokenService tokenService, IPasswordService passwordService, IEmailService emailService, AppDbContext context)
+        public AuthController(ITokenService tokenService, IPasswordService passwordService, IEmailService emailService, AppDbContext context, IConfiguration configuration)
         {
             _tokenService = tokenService;
             _passwordService = passwordService;
             _emailService = emailService;
             _context = context;
+            _configuration = configuration;
         }
 
         private bool CodeExists(int code)
@@ -35,16 +38,6 @@ namespace projetStage.Controllers
 
         private async void CreateUser(RegisterUserModel model, bool isAdmin, bool isRequester, bool isPurchaser, bool isValidator, bool reOpenAfterValidation)
         {
-            if (CodeExists(model.Code))
-            {
-                throw new Exception("User with this code already exists.");
-            }
-
-            if (_context.Users.Any(u => u.Email == model.Email))
-            {
-                throw new Exception("User with this email already exists.");
-            }
-
             var password = PasswordGenerator.GeneratePassword();
             var user = new User
             {
@@ -66,67 +59,92 @@ namespace projetStage.Controllers
             _context.Users.Add(user);
             _context.SaveChanges();
 
-            await _emailService.SendEmail(model.Email, "Account Created", $"Your temporary password is: {password}. Please log in and change your password.");
+            string url = _configuration["Variables:URL"];
+            await _emailService.SendEmail(model.Email, "Account Created", $"<h3>Your temporary password is: {password} </h3> <br> <p>Please head to <a href=\"{url}\" target=\"_blank\">the website</a>, log in and change your password.</p>");
         }
 
         [HttpPost("register/admin")]
         
         public IActionResult RegisterAdmin([FromBody] RegisterUserModel model)
         {
-            try
+            var existes = CodeExists(model.Code);
+            if (existes)
             {
-                CreateUser(model, true, true, false, false, false);
-                return Ok("Admin registered successfully.");
+                return BadRequest("User with this code already exists.");
             }
-            catch (Exception ex)
+
+            var emailExistes = _context.Users.Any(u => u.Email == model.Email);
+
+            if (emailExistes)
             {
-                return BadRequest(ex.Message);
+                return BadRequest("User with this email already exists.");
             }
+
+            CreateUser(model, true, true, false, false, false);
+            return Ok("Admin registered successfully.");
         }
 
         [HttpPost("register/acheteur")]
         //[Authorize(Roles = "A")]
         public IActionResult RegisterAcheteur([FromBody] RegisterUserModel model)
         {
-            try
+            var existes = CodeExists(model.Code);
+            if (existes)
             {
-                CreateUser(model, false, true, true, false, model.ReOpenAfterValidation);
-                return Ok("Purchaser registered successfully.");
+                return BadRequest("User with this code already exists.");
             }
-            catch (Exception ex)
+
+            var emailExistes = _context.Users.Any(u => u.Email == model.Email);
+
+            if (emailExistes)
             {
-                return BadRequest(ex.Message);
+                return BadRequest("User with this email already exists.");
             }
+
+            CreateUser(model, false, true, true, false, model.ReOpenAfterValidation);
+            return Ok("Purchaser registered successfully.");
         }
 
         [HttpPost("register/demandeur")]
         //[Authorize(Roles = "A")]
         public IActionResult RegisterDemandeur([FromBody] RegisterUserModel model)
         {
-            try
+            var existes = CodeExists(model.Code);
+            if (existes)
             {
-                CreateUser(model, false, true, false, false, false);
-                return Ok("Requester registered successfully.");
+                return BadRequest("User with this code already exists.");
             }
-            catch (Exception ex)
+
+            var emailExistes = _context.Users.Any(u => u.Email == model.Email);
+
+            if (emailExistes)
             {
-                return BadRequest(ex.Message);
+                return BadRequest("User with this email already exists.");
             }
+
+            CreateUser(model, false, true, false, false, false);
+            return Ok("Requester registered successfully.");
         }
 
         [HttpPost("register/validateur")]
         //[Authorize(Roles = "A")]
         public IActionResult RegisterValidateur([FromBody] RegisterUserModel model)
         {
-            try
+            var existes = CodeExists(model.Code);
+            if (existes)
             {
-                CreateUser(model, false, false, false, true, false);
-                return Ok("Validator registered successfully.");
+                return BadRequest("User with this code already exists.");
             }
-            catch (Exception ex)
+
+            var emailExistes = _context.Users.Any(u => u.Email == model.Email);
+
+            if (emailExistes)
             {
-                return BadRequest(ex.Message);
+                return BadRequest("User with this email already exists.");
             }
+
+            CreateUser(model, false, false, false, true, false);
+            return Ok("Validator registered successfully.");
         }
 
         [HttpPost("login")]

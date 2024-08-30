@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using projetStage.Data;
 using projetStage.DTO;
 using projetStage.DTO.demandes;
@@ -8,6 +9,7 @@ using projetStage.Helper;
 using projetStage.Models;
 using projetStage.Services;
 using System.ComponentModel.DataAnnotations;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -19,11 +21,13 @@ public class DemandeController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IEmailService _emailService;
+    private readonly IConfiguration _configuration;
 
-    public DemandeController(AppDbContext context, IEmailService emailService)
+    public DemandeController(AppDbContext context, IEmailService emailService, IConfiguration configuration)
     {
         _context = context;
         _emailService = emailService;
+        _configuration = configuration;
     }
 
     private async Task LogDemandeHistory(int userCode, int demandeId, string changeDetails)
@@ -172,15 +176,17 @@ public class DemandeController : ControllerBase
                 Destination = da.Destination,
                 PurchaseOrder = da.BonCommande
             })
+            .OrderBy(da => da.Name == "Delivery Fee" ? 1 : 0) // Ensure "Delivery Fee" is last
             .ToList();
 
-        if (articles == null || !articles.Any())
+        if (!articles.Any())
         {
             return NotFound("No articles found.");
         }
 
         return Ok(articles);
     }
+
 
     [HttpPut("{demandeCode}/update-articles")]
     public async Task<IActionResult> UpdateDemandeArticles(string demandeCode, [FromBody] UpdateArticlesModel model)
@@ -255,10 +261,10 @@ public class DemandeController : ControllerBase
 
         // Get all articles related to the demande
         var allArticles = await _context.DemandeArticles
-            .Where(da => da.DemandeId == demande.Id && da.Name != "Delivery Fee")
-            .OrderBy(da => da.Id) // Ensure order
+            .Where(da => da.DemandeId == demande.Id)
+            .OrderBy(da => da.Name == "Delivery Fee" ? 1 : 0) // Ensure "Delivery Fee" is last
             .ToListAsync();
-
+         
         // Iterate through the articles and apply the PO logic
         string lastAppliedPO = null;
 
@@ -291,13 +297,35 @@ public class DemandeController : ControllerBase
     {
         var articleSuggestions = new List<Article>();
         var demandeArticleSuggestions = new List<Article>();
-
+        
+        string connectionString = _configuration.GetSection("ConnectionStrings")["SqlServerConnectionString"];
         switch (type)
         {
             case "article":
-                articleSuggestions = await _context.Articles
-                    .Where(a => a.Nom.Contains(query))
-                    .ToListAsync();
+
+                var sqlQuery = $@"SELECT nom, description 
+                            FROM articles
+                            WHERE nom LIKE @Query";
+                using (SqlConnection connection = new SqlConnection(connectionString))
+                {
+                    using (SqlCommand command = new SqlCommand(sqlQuery, connection))
+                    {
+                        command.Parameters.AddWithValue("@Query", "%" + query + "%");
+                        connection.Open();
+                        using (SqlDataReader reader = await command.ExecuteReaderAsync())
+                        {
+                            while (await reader.ReadAsync())
+                            {
+                                Article article = new Article
+                                {
+                                    Nom = reader.GetString(0),
+                                    Description = reader.GetString(1)   
+                                };
+                                articleSuggestions.Add(article);
+                            }
+                        }
+                    }
+                }
 
                 demandeArticleSuggestions = await _context.DemandeArticles
                     .Where(da => da.Name.Contains(query))
@@ -320,9 +348,28 @@ public class DemandeController : ControllerBase
                 return Ok(uniqueArticles);
 
             case "description":
-                articleSuggestions = await _context.Articles
-                    .Where(a => a.Description.Contains(query))
-                    .ToListAsync();
+                var sqlQuery2 = $@"SELECT description 
+                                    FROM articles
+                                    WHERE description LIKE @Query";
+                using (SqlConnection connection = new SqlConnection(connectionString))
+                {
+                    using (SqlCommand command = new SqlCommand(sqlQuery2, connection))
+                    {
+                        command.Parameters.AddWithValue("@Query", "%" + query + "%");
+                        connection.Open();
+                        using (SqlDataReader reader = await command.ExecuteReaderAsync())
+                        {
+                            while (await reader.ReadAsync())
+                            {
+                                Article article = new Article
+                                {
+                                    Description = reader.GetString(0)
+                                };
+                                articleSuggestions.Add(article);
+                            }
+                        }
+                    }
+                }
 
                 demandeArticleSuggestions = await _context.DemandeArticles
                     .Where(da => da.Description.Contains(query))
@@ -345,10 +392,6 @@ public class DemandeController : ControllerBase
                 return Ok(uniqueDescriptions);
 
             case "familleDeProduit":
-                articleSuggestions = await _context.Articles
-                    .Where(a => a.FamilleDeProduit.Contains(query))
-                    .ToListAsync();
-
                 demandeArticleSuggestions = await _context.DemandeArticles
                     .Where(da => da.FamilleDeProduit.Contains(query))
                     .Select(da => new Article
@@ -370,10 +413,6 @@ public class DemandeController : ControllerBase
                 return Ok(uniqueFamilles);
 
             case "destination":
-                articleSuggestions = await _context.Articles
-                    .Where(a => a.Destination.Contains(query))
-                    .ToListAsync();
-
                 demandeArticleSuggestions = await _context.DemandeArticles
                     .Where(da => da.Destination.Contains(query))
                     .Select(da => new Article
@@ -497,8 +536,20 @@ public class DemandeController : ControllerBase
                         s.Supplier.Id,
                         s.Supplier.Nom,
                         s.isSelectedForValidation,
-                        Offer = _context.DevisItems.Where(o => o.DemandeArticle.Demande.Code == demandeCode && o.FournisseurId == s.SupplierId)
-                        .ToArray()
+                        Offer = _context.DevisItems
+                        .Where(o => o.DemandeArticle.Demande.Code == demandeCode && o.FournisseurId == s.SupplierId)
+                        .Select(o => new
+                        {
+                            o.Id,
+                            o.DemandeArticleId,
+                            o.FournisseurId,
+                            o.UnitPrice,
+                            o.Devise,
+                            o.Delay,
+                            o.Discount,
+                            ArticleName = o.DemandeArticle.Name
+                        }).ToArray()
+                            
                     })
             .ToListAsync();
 
@@ -620,7 +671,7 @@ public class DemandeController : ControllerBase
     [HttpPut("{requestCode}/reject/{userCode}")]
     public async Task<IActionResult> RejectDemande(string requestCode, int userCode)
     {
-        var demande = await _context.Demandes.FirstAsync(d => d.Code == requestCode);
+        var demande = await _context.Demandes.Include(d => d.DemandeArticles).FirstAsync(d => d.Code == requestCode);
         if (demande == null)
         {
             return NotFound();
@@ -628,12 +679,11 @@ public class DemandeController : ControllerBase
 
         var validator = await _context.Users.FirstAsync(u => u.Code == userCode);
 
-        if (validator.Departement == "CFO" || validator.Departement == "COO")
+        if (validator.Departement == "CFO")
         {
             demande.Status = DemandeStatus.Rejected;
             demande.IsValidateurCFORejected = true;
             demande.IsValidateurCFOValidated = false;
-            demande.IsValidateurCOOValidated = false;
             demande.ValidatedOrRejectedByCFOAt = DateTime.Now;
             demande.ValidateurCFO = validator;
         }
@@ -641,7 +691,6 @@ public class DemandeController : ControllerBase
         {
             demande.Status = DemandeStatus.Rejected;
             demande.IsValidateurCOORejected = true;
-            demande.IsValidateurCFOValidated = false;
             demande.IsValidateurCOOValidated = false;
             demande.ValidatedOrRejectedByCFOAt = DateTime.Now;
             demande.ValidateurCOO = validator;
@@ -655,6 +704,36 @@ public class DemandeController : ControllerBase
         await _context.SaveChangesAsync();
 
         await LogDemandeHistory(validator.Code, demande.Id, $"Rejected by user {validator.FirstName} {validator.LastName}");
+
+        var supplierRequests = _context.SupplierRequests
+            .Where(sr => sr.DemandeId == demande.Id)
+            .Include(sr => sr.Supplier)
+            .ToList();
+        var suppliers = supplierRequests.Select(sr => sr.Supplier).Distinct().ToList();
+
+        // Fetch devis items for these suppliers specific to the demande
+        var devisItems = await _context.DevisItems
+            .Where(di => di.DemandeArticle.DemandeId == demande.Id && supplierRequests.Select(sr => sr.SupplierId).Contains(di.FournisseurId))
+            .ToListAsync();
+
+        // Retrieve all purchasers' emails
+        var purchaserEmails = await _context.Users
+            .Where(u => u.IsPurchaser && u.IsActive)
+            .Select(u => u.Email)
+            .ToListAsync();
+
+        // Generate HTML table
+        var currencies = _context.Currencies.ToList();
+        var exchangeRates = new Dictionary<string, float> {
+                { "EUR", currencies.First(c=> c.CurrencyCode == "EUR").PriceInEur },
+                { "USD", currencies.First(c=> c.CurrencyCode == "USD").PriceInEur },
+                { "MAD", currencies.First(c=> c.CurrencyCode == "MAD").PriceInEur },
+                { "GBP", currencies.First(c=> c.CurrencyCode == "GBP").PriceInEur }};
+        var htmlTable = HTMLTableGenerator.GenerateHtmlTable(demande, devisItems, supplierRequests, exchangeRates);
+        var subject = "Request Has Been Rejected";
+        var body = $"Request with code {requestCode} has been Rejected by {validator.FirstName} {validator.LastName}.<br><br>{htmlTable}";
+
+        await _emailService.SendEmailAsync(subject, body, purchaserEmails, validator.Email);
 
         return Ok();
     }
@@ -836,6 +915,7 @@ public class DemandeController : ControllerBase
             .Take(10)
             .Select(di => new
             {
+                Request = di.DemandeArticle.Demande.Code,
                 SupplierName = di.Fournisseur.Nom,
                 UnitPrice = di.UnitPrice,
                 Devise = di.Devise

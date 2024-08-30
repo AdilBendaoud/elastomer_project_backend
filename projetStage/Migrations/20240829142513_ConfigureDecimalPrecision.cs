@@ -5,7 +5,7 @@
 namespace projetStage.Migrations
 {
     /// <inheritdoc />
-    public partial class removeArticleId : Migration
+    public partial class ConfigureDecimalPrecision : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

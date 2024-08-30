@@ -7,6 +7,7 @@ using projetStage.DTO.demandes;
 using projetStage.Helper;
 using projetStage.Models;
 using projetStage.Services;
+using System.Text;
 using System.Threading.Channels;
 
 namespace projetStage.Controllers
@@ -17,11 +18,13 @@ namespace projetStage.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IEmailService _emailService;
+        private readonly IConfiguration _configuration;
 
-        public DevisController(AppDbContext context, IEmailService emailService)
+        public DevisController(AppDbContext context, IEmailService emailService, IConfiguration configuration)
         {
             _context = context;
             _emailService = emailService;
+            _configuration = configuration;
         }
 
         private async Task LogDemandeHistory(int userCode, int demandeId, string changeDetails)
@@ -67,7 +70,17 @@ namespace projetStage.Controllers
             var selectedSupplier = await _context.SupplierRequests.FirstAsync(sr => sr.Demande == demande && sr.SupplierId == model.supplierId);
             selectedSupplier.isSelectedForValidation = true;
 
-            demande.Status = DemandeStatus.WV;
+            if (demande.IsValidateurCFOValidated)
+            {
+                demande.Status = DemandeStatus.CFOValidated;
+            }
+            else if(demande.IsValidateurCOOValidated) {
+                demande.Status = DemandeStatus.COOValidated;
+            }
+            else
+            {
+                demande.Status = DemandeStatus.WV;
+            }
 
             await _context.SaveChangesAsync();
 
@@ -97,7 +110,9 @@ namespace projetStage.Controllers
                 { "MAD", currencies.First(c=> c.CurrencyCode == "MAD").PriceInEur },
                 { "GBP", currencies.First(c=> c.CurrencyCode == "GBP").PriceInEur }};
             var htmlTable = HTMLTableGenerator.GenerateHtmlTable(demande, devisItems, supplierRequests, exchangeRates);
-            var emailBody = $"A new request with code {demande.Code} requires your validation. Please log in to the system to validate the request. <br><br>{htmlTable}";
+            
+            string url = _configuration["Variables:URL"];
+            var emailBody = $"A new request with code {demande.Code} requires your validation. Please head to <a href=\"{url}\" target=\"_blank\">the website</a> to validate the request. <br><br>{htmlTable}";
 
             foreach (var email in emailAddresses)
             {

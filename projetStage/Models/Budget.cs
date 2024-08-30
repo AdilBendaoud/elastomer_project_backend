@@ -1,10 +1,12 @@
-﻿namespace projetStage.Models
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace projetStage.Models
 {
+    [Table("WESM_Budgets")]
     public class Budget
     {
         public int Id { get; set; }
         public string Departement { get; set; }
-        public DateOnly Date {  get; set; }
         public int Month { get; set; }
         public int Year { get; set; }
         public int? InitialBudget { get; set; }
